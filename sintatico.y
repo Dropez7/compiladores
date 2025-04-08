@@ -3,7 +3,7 @@
 #include <string>
 #include <sstream>
 #include <set>
-
+#include <algorithm> 
 
 
 #define YYSTYPE atributos
@@ -16,6 +16,7 @@ struct atributos
 {
 	string label;
 	string traducao;
+	string tipo;
 };
 
 int yylex(void);
@@ -30,7 +31,7 @@ set<string> variaveis_bool;
 
 
 %token TK_NUM
-%token TK_MAIN TK_ID TK_REAL
+%token TK_MAIN TK_ID TK_REAL TK_CHAR TK_BOOL
 %token TK_FIM TK_ERROR TIPO_VAR
 %token NEWLINE
 %token TK_TIPO_INT TK_TIPO_FLOAT TK_TIPO_CHAR TK_TIPO_BOOL
@@ -113,21 +114,43 @@ E 			: E '+' E
 			}
 			| TK_TIPO_INT TK_ID '=' E
 			{
+				if ($4.tipo != "int") {
+					yyerror("Erro: atribuição incompatível (esperado int, recebeu " + $4.tipo + ")");
+				}
+
 				variaveis_int.insert($2.label); // <-- registra a variavel
 				$$.traducao = $2.traducao + $4.traducao + "\t" + $2.label + " = " + $4.label + ";\n";
 			}
 			| TK_TIPO_FLOAT TK_ID '=' E
 			{
+				if ($4.tipo != "float" && $4.tipo != "int") {
+					yyerror("Erro: atribuição incompatível (esperado float ou int, recebeu " + $4.tipo + ")");
+				}	
+
 				variaveis_float.insert($2.label); // <-- registra a variavel
-				$$.traducao = $2.traducao + $4.traducao + "\t" + $2.label + " = " + $4.label + ";\n";
+				
+				if($4.tipo == "float") {
+					$$.traducao = $2.traducao + $4.traducao + "\t" + $2.label + " = " + $4.label + ";\n";
+				} else {
+					$$.traducao = $2.traducao + $4.traducao + "\t" + $2.label + " = " + $4.label + ".0;\n";
+				}
 			}
 			| TK_TIPO_CHAR TK_ID '=' E
 			{
+
+				if ($4.tipo != "char") {
+					yyerror("Erro: atribuição incompatível (esperado char, recebeu " + $4.tipo + ")");
+				}	
+
 				variaveis_char.insert($2.label); // <-- registra a variavel
 				$$.traducao = $2.traducao + $4.traducao + "\t" + $2.label + " = " + $4.label + ";\n";
 			}
 			| TK_TIPO_BOOL TK_ID '=' E
 			{
+				if ($4.tipo != "bool") {
+					yyerror("Erro: atribuição incompatível (esperado bool, recebeu " + $4.tipo + ")");
+				}	
+
 				variaveis_bool.insert($2.label); // <-- registra a variavel
 				$$.traducao = $2.traducao + $4.traducao + "\t" + $2.label + " = " + $4.label + ";\n";
 			}
@@ -136,11 +159,38 @@ E 			: E '+' E
 			{
 				$$.label = gentempcode();
 				$$.traducao = "\t" + $$.label + " = " + $1.label + ";\n";
+				$$.tipo = "int";
 			}
 			| TK_REAL 
 			{
 				$$.label = gentempcode();
 				$$.traducao = "\t" + $$.label + " = " + $1.label + ";\n";
+				$$.tipo = "float";
+			}
+			| TK_CHAR
+			{
+				std::string s = $1.label;
+				std::replace(s.begin(), s.end(), '\"', '\'');
+				
+				
+				$$.label = gentempcode();
+				$$.traducao = "\t" + $$.label + " = " + s + ";\n";
+				$$.tipo = "char";
+			}
+			| TK_BOOL 
+			{
+
+				if($1.label == "T") {
+					$1.label = "1";
+				} else if ($1.label == "F") {
+					$1.label = "0";
+				} else {
+					yyerror("Erro: valor booleano inválido");
+				}
+
+				$$.label = gentempcode();
+				$$.traducao = "\t" + $$.label + " = " + $1.label + ";\n";
+				$$.tipo = "bool";
 			}
 			| TK_ID
 			{

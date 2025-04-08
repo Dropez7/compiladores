@@ -1,7 +1,7 @@
 int main()
 {
-	float c = 3;
+	float c = 3.2;
 	int e = 3;
-	char d = 3;
-	bool h = 3;
+	char d = "d";
+	bool h = T;
 }
