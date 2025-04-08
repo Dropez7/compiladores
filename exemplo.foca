@@ -1,0 +1,7 @@
+int main()
+{
+	float c = 3;
+	int e = 3;
+	char d = 3;
+	bool h = 3;
+}

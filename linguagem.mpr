@@ -1,0 +1,65 @@
+// Exemplo de arquivo Foca
+
+int main() {
+    
+}
+
+// Declaração e Atribuição
+bool ativo
+int idade
+int a, b, c, x;
+int l = 10;
+float altura
+float y;
+char nome
+
+
+idade = 30
+altura = 1.75
+a, b = b, a
+
+
+// Conversão explicita
+a = int(3.9)  
+b = float(7)  
+c = char(97)  
+
+
+// Conversão implicita
+x = 5
+y = 2.0
+result = x + y
+
+
+
+
+// Operadores Aritméticos:
+a + b      
+a - b      
+a * b      
+a / b      
+a ** b     
+a % b      
+
+
+// Operadores Relacionais:
+a == b
+a != b
+a < b
+a > b
+a <= b
+a >= b
+
+
+// Operadores Lógicos:
+
+// And
+a ^ b 
+
+// Or
+a ? b 
+
+// Not
+~a 
+
+
