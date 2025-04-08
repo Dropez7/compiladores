@@ -22,7 +22,7 @@ BOOL T|F
 
 {DELIM} 	{}
 
-"main"		{return TK_MAIN;}
+"main"		{ return TK_MAIN;}
 
 "int"       { yylval.label = yytext; return TK_TIPO_INT; }
 "float"     { yylval.label = yytext; return TK_TIPO_FLOAT; }
@@ -33,7 +33,18 @@ BOOL T|F
 
 [+\-*/]		{ return *yytext; }
 
-"="		    { return '='; }
+"!="		{ return TK_DIFERENTE; }
+"<="		{ return TK_MENOR_IGUAL; }
+">="		{ return TK_MAIOR_IGUAL; }
+"=="		{ return TK_IGUAL_IGUAL; }
+">"         { return '>'; }
+"<"         { return '<'; }
+
+[=]		    { return *yytext; }
+
+[\^]		{ return *yytext; }
+[?]	    	{ return *yytext; }
+[~]		    { return *yytext; }
 
 {NUM}		{ yylval.label = yytext; return TK_NUM; }
 {REAL}		{ yylval.label = yytext; return TK_REAL; }

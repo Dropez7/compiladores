@@ -36,13 +36,22 @@ set<string> variaveis_bool;
 %token NEWLINE
 %token TK_TIPO_INT TK_TIPO_FLOAT TK_TIPO_CHAR TK_TIPO_BOOL
 
+%token TK_SOMA TK_SUB TK_MUL TK_DIV
+%token TK_DIFERENTE TK_MENOR_IGUAL TK_MAIOR_IGUAL TK_IGUAL_IGUAL
+
+
+
 
 
 %start S
 
+%left '^' '?' '~'
+%left '<' '>' TK_IGUAL_IGUAL TK_DIFERENTE TK_MAIOR_IGUAL TK_MENOR_IGUAL
+
 %left '+' '-'
 %left '*' '/'
 %left '(' ')'
+
 
 %%
 
@@ -129,6 +138,69 @@ E 			: E '+' E
 			| '(' E ')'
 			{
 				$$ = $2;
+			}
+			| E '^' E
+			{
+				$$.label = gentempcode();
+				$$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + 
+					" = ( " + $1.label + " && " + $3.label + ");\n";
+				$$.tipo = "bool";
+			}
+			| E '?' E
+			{
+				$$.label = gentempcode();
+				$$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + 
+					" = (" + $1.label + " || " + $3.label + ");\n";
+				$$.tipo = "bool";
+			}
+			| '~' E
+			{
+				$$.label = gentempcode();
+				$$.traducao = $1.traducao + "\t" + $$.label + 
+					" = !" + $1.label + ";\n";
+				$$.tipo = "bool";
+			}
+			| E '<' E
+			{
+				$$.label = gentempcode();
+				$$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + 
+					" = " + $1.label + " < " + $3.label + ";\n";
+				$$.tipo = "bool";
+			}
+			| E '>' E
+			{
+				$$.label = gentempcode();
+				$$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + 
+					" = " + $1.label + " > " + $3.label + ";\n";
+				$$.tipo = "bool";
+			}
+			| E TK_IGUAL_IGUAL E
+			{
+				$$.label = gentempcode();
+				$$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + 
+					" = " + $1.label + " == " + $3.label + ";\n";
+				$$.tipo = "bool";
+			}
+			| E TK_DIFERENTE E
+			{
+				$$.label = gentempcode();
+				$$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + 
+					" = " + $1.label + " != " + $3.label + ";\n";
+				$$.tipo = "bool";
+			}
+			| E TK_MAIOR_IGUAL E
+			{
+				$$.label = gentempcode();
+				$$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + 
+					" = " + $1.label + " >= " + $3.label + ";\n";
+				$$.tipo = "bool";
+			}
+			| E TK_MENOR_IGUAL E
+			{
+				$$.label = gentempcode();
+				$$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + 
+					" = " + $1.label + " <= " + $3.label + ";\n";
+				$$.tipo = "bool";
 			}
 			| TK_TIPO_INT TK_ID '=' E
 			{
