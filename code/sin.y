@@ -19,14 +19,25 @@ struct atributos
 	string tipo;
 };
 
+struct Variavel
+{
+	string nome;
+	string tipo;
+};
+bool operator<(const Variavel& a, const Variavel& b) {
+	return a.nome < b.nome;
+}
+
+
 int yylex(void);
 void yyerror(string);
 string gentempcode();
 set<string> variaveis_declaradas;
-set<string> variaveis_int;
-set<string> variaveis_float;
-set<string> variaveis_char;
-set<string> variaveis_bool;
+// set<string> variaveis_int;
+// set<string> variaveis_float;
+// set<string> variaveis_char;
+// set<string> variaveis_bool;
+set<Variavel> variaveis;
 %}
 
 
@@ -34,7 +45,7 @@ set<string> variaveis_bool;
 %token TK_MAIN TK_ID TK_REAL TK_CHAR TK_BOOL
 %token TK_FIM TK_ERROR TIPO_VAR
 %token NEWLINE
-%token TK_TIPO_INT TK_TIPO_FLOAT TK_TIPO_CHAR TK_TIPO_BOOL
+%token TK_TIPO
 
 %token TK_SOMA TK_SUB TK_MUL TK_DIV
 %token TK_DIFERENTE TK_MENOR_IGUAL TK_MAIOR_IGUAL TK_IGUAL_IGUAL
@@ -55,7 +66,7 @@ set<string> variaveis_bool;
 
 %%
 
-S 			: TK_TIPO_INT TK_MAIN '(' ')' BLOCO
+S 			: TK_TIPO TK_MAIN '(' ')' BLOCO
 			{
 				string codigo = "/*Compilador FOCA*/\n"
 								"#include <iostream>\n"
@@ -63,20 +74,9 @@ S 			: TK_TIPO_INT TK_MAIN '(' ')' BLOCO
 								"#include<stdio.h>\n"
 								"int main(void) {\n";
 				
-				for (const auto& var : variaveis_int)
-					codigo += "\tint " + var + ";\n";
-
-				for (const auto& var : variaveis_float)
-					codigo += "\tfloat " + var + ";\n";
-
-				for (const auto& var : variaveis_char)
-					codigo += "\tchar " + var + ";\n";
-				
-				for (const auto& var : variaveis_bool)
-					codigo += "\tbool " + var + ";\n";
-
-				for (const auto& var : variaveis_declaradas)
-					codigo += "\ttemp " + var + ";\n";
+				for (const Variavel& var : variaveis)
+					codigo += "\t" + var.tipo + " " + var.nome + ";\n";
+					//         \t tipo nome;
 
 				codigo += "\n";
 								
@@ -202,49 +202,19 @@ E 			: E '+' E
 					" = " + $1.label + " <= " + $3.label + ";\n";
 				$$.tipo = "bool";
 			}
-			| TK_TIPO_INT TK_ID '=' E
+			| TK_TIPO TK_ID '=' E
 			{
-				if ($4.tipo != "int") {
-					yyerror("Erro: atribuição incompatível (esperado int, recebeu " + $4.tipo + ")");
+				Variavel v;
+				v.nome = $2.label;
+				v.tipo = $1.label;
+
+				if (v.tipo != $4.tipo) {
+					yyerror("Erro: atribuição incompatível (esperado" + v.tipo + ", recebeu " + $4.tipo + ")");
 				}
-
-				variaveis_int.insert($2.label); // <-- registra a variavel
-				$$.traducao = $2.traducao + $4.traducao + "\t" + $2.label + " = " + $4.label + ";\n";
-			}
-			| TK_TIPO_FLOAT TK_ID '=' E
-			{
-				if ($4.tipo != "float" && $4.tipo != "int") {
-					yyerror("Erro: atribuição incompatível (esperado float ou int, recebeu " + $4.tipo + ")");
-				}	
-
-				variaveis_float.insert($2.label); // <-- registra a variavel
 				
-				if($4.tipo == "float") {
-					$$.traducao = $2.traducao + $4.traducao + "\t" + $2.label + " = " + $4.label + ";\n";
-				} else {
-					$$.traducao = $2.traducao + $4.traducao + "\t" + $2.label + " = " + $4.label + ".0;\n";
-				}
-			}
-			| TK_TIPO_CHAR TK_ID '=' E
-			{
-
-				if ($4.tipo != "char") {
-					yyerror("Erro: atribuição incompatível (esperado char, recebeu " + $4.tipo + ")");
-				}	
-
-				variaveis_char.insert($2.label); // <-- registra a variavel
+				variaveis.insert(v);
 				$$.traducao = $2.traducao + $4.traducao + "\t" + $2.label + " = " + $4.label + ";\n";
 			}
-			| TK_TIPO_BOOL TK_ID '=' E
-			{
-				if ($4.tipo != "bool") {
-					yyerror("Erro: atribuição incompatível (esperado bool, recebeu " + $4.tipo + ")");
-				}	
-
-				variaveis_bool.insert($2.label); // <-- registra a variavel
-				$$.traducao = $2.traducao + $4.traducao + "\t" + $2.label + " = " + $4.label + ";\n";
-			}
-
 			| TK_NUM
 			{
 				$$.label = gentempcode();

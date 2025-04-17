@@ -24,10 +24,7 @@ BOOL T|F
 
 "main"		{ return TK_MAIN;}
 
-"int"       { yylval.label = yytext; return TK_TIPO_INT; }
-"float"     { yylval.label = yytext; return TK_TIPO_FLOAT; }
-"char"      { yylval.label = yytext; return TK_TIPO_CHAR; }
-"bool"      { yylval.label = yytext; return TK_TIPO_BOOL; }
+"int"|"float"|"char"|"bool" { yylval.label = yytext; return TK_TIPO; }
 
 [(){}[\];,]	{ return *yytext; }
 

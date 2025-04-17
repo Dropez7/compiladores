@@ -2,7 +2,7 @@
 ![peixinho](img/peixinho.svg)
 
 ## TO-DO (Etapa 1)
-- [ ] Expressão com soma
+- [X] Expressão com soma
   - Fazer a soma sobre inteiros funcionar.
 
 Código na LP: 
@@ -20,7 +20,7 @@ T5 = T4 + T3;
 ```
 
 ---
-- [ ] Expressão com os Demais Operadores Aritméticos  
+- [X] Expressão com os Demais Operadores Aritméticos  
   - Fazer as demais operações aritméticas sobre inteiros funcionarem.
 
 Código na LP:
@@ -38,7 +38,7 @@ T5 = T4 + T3;
 ```
 
 ---
-- [ ] Declaração das Cédulas de Memória Usadas  
+- [X] Declaração das Cédulas de Memória Usadas  
   - Deverá declarar antes do código todas as cédulas de memória utilizadas.
 
 Código na LP:
@@ -64,7 +64,7 @@ T5 = T4 + T3;
 **OBS:** Nesse momento, já é possível compilar esse código em C. A principal dificuldade passa a ser a necessidade de impressão do resultado para verificar se a conta está correta.
 
 ---
-- [ ] Desenvolvimento do Parênteses
+- [X] Desenvolvimento do Parênteses
   - Deverá permitir o uso de parênteses nas expressões.
 
 Código na LP:
