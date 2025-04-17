@@ -31,8 +31,8 @@ bool operator<(const Variavel& a, const Variavel& b) {
 
 int yylex(void);
 void yyerror(string);
-string gentempcode(string tipo);
-set<string> variaveis_declaradas;
+string genTempCode(string tipo);
+Variavel getVariavel(string nome);
 set<Variavel> variaveis;
 %}
 
@@ -64,8 +64,7 @@ set<Variavel> variaveis;
 
 S 			: TK_TIPO TK_MAIN '(' ')' BLOCO
 			{
-				string codigo = "/*Compilador FOCA*/\n"
-								"#include <iostream>\n"
+				string codigo = "/*Compilador MAPHRA*/\n"
 								"#include<string.h>\n"
 								"#include<stdio.h>\n"
 								"#define bool int\n\n"
@@ -110,25 +109,36 @@ COMANDO 	: E ';'
 
 E 			: E '+' E
 			{
-				$$.label = gentempcode("bool");
+				$$.label = genTempCode("int");
+				if ($1.tipo == "char" || $1.tipo == "bool") {
+					yyerror("Erro: operação indisponível para tipo " + $1.tipo);
+				}
+				if ($3.tipo == "char" || $3.tipo == "bool") {
+					yyerror("Erro: operação indisponível para tipo " + $3.tipo);
+				}
+				if ($1.tipo != $3.tipo) {
+					// converte tudo para float
+					$1.traducao += ($1.tipo != "float") ? "\t" + $$.label + " = (float) " + $1.label + ";\n" : "";
+					$3.traducao += ($3.tipo != "float") ? "\t" + $$.label + " = (float) " + $3.label + ";\n" : "";
+				}
 				$$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + 
 					" = " + $1.label + " + " + $3.label + ";\n";
 			}
 			| E '-' E
 			{
-				$$.label = gentempcode("bool");
+				$$.label = genTempCode("int");
 				$$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + 
 					" = " + $1.label + " - " + $3.label + ";\n";
 			}
 			| E '*' E
 			{
-				$$.label = gentempcode("bool");
+				$$.label = genTempCode("int");
 				$$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + 
 					" = " + $1.label + " * " + $3.label + ";\n";
 			}
 			| E '/' E
 			{
-				$$.label = gentempcode("bool");
+				$$.label = genTempCode("int");
 				$$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + 
 					" = " + $1.label + " / " + $3.label + ";\n";
 			}
@@ -138,80 +148,68 @@ E 			: E '+' E
 			}
 			| E '^' E
 			{
-				$$.label = gentempcode("bool");
+				$$.label = genTempCode("bool");
 				$$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + 
 					" = " + $1.label + " && " + $3.label + ";\n";
 				$$.tipo = "bool";
 			}
 			| E '?' E
 			{
-				$$.label = gentempcode("bool");
+				$$.label = genTempCode("bool");
 				$$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + 
 					" = " + $1.label + " || " + $3.label + ";\n";
 				$$.tipo = "bool";
 			}
 			| '~' E
 			{
-				$$.label = gentempcode("bool");
+				$$.label = genTempCode("bool");
 				$$.traducao = $1.traducao + "\t" + $$.label + 
 					" = !" + $1.label + ";\n";
 				$$.tipo = "bool";
 			}
 			| E '<' E
 			{
-				$$.label = gentempcode("bool");
+				$$.label = genTempCode("bool");
 				$$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + 
 					" = " + $1.label + " < " + $3.label + ";\n";
 				$$.tipo = "bool";
 			}
 			| E '>' E
 			{
-				$$.label = gentempcode("bool");
+				$$.label = genTempCode("bool");
 				$$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + 
 					" = " + $1.label + " > " + $3.label + ";\n";
 				$$.tipo = "bool";
 			}
 			| E TK_IGUAL_IGUAL E
 			{
-				$$.label = gentempcode("bool");
+				$$.label = genTempCode("bool");
 				$$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + 
 					" = " + $1.label + " == " + $3.label + ";\n";
 				$$.tipo = "bool";
 			}
 			| E TK_DIFERENTE E
 			{
-				$$.label = gentempcode("bool");
+				$$.label = genTempCode("bool");
 				$$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + 
 					" = " + $1.label + " != " + $3.label + ";\n";
 				$$.tipo = "bool";
 			}
 			| E TK_MAIOR_IGUAL E
 			{
-				$$.label = gentempcode("bool");
+				$$.label = genTempCode("bool");
 				$$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + 
 					" = " + $1.label + " >= " + $3.label + ";\n";
 				$$.tipo = "bool";
 			}
 			| E TK_MENOR_IGUAL E
 			{
-				$$.label = gentempcode("bool");
+				$$.label = genTempCode("bool");
 				$$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + 
 					" = " + $1.label + " <= " + $3.label + ";\n";
 				$$.tipo = "bool";
 			}
-			| TK_TIPO TK_ID '=' E
-			{
-				Variavel v;
-				v.nome = $2.label;
-				v.tipo = $1.label;
-
-				if (v.tipo != $4.tipo) {
-					yyerror("Erro: atribuição incompatível (esperado" + v.tipo + ", recebeu " + $4.tipo + ")");
-				}
-				
-				variaveis.insert(v);
-				$$.traducao = $2.traducao + $4.traducao + "\t" + $2.label + " = " + $4.label + ";\n";
-			}
+			// int A
 			| TK_TIPO TK_ID
 			{
 				Variavel v;
@@ -219,25 +217,59 @@ E 			: E '+' E
 				v.tipo = $1.label;
 				variaveis.insert(v);
 			}
+			// A = 2
+			| TK_ID '=' E
+			{
+				string tipo = "bug";
+				for (const Variavel& var : variaveis) {
+					if (var.nome == $1.label) {
+						tipo = var.tipo;
+						break;
+					}
+				}
+				if (tipo == "bug") {
+					// declaração implícita
+					Variavel v;
+					v.nome = $1.label;
+					v.tipo = $3.tipo;
+					variaveis.insert(v);
+				}
+				$$.traducao = $1.traducao + $3.traducao + "\t" + $1.label + " = " + $3.label + ";\n";
+			}
+			// int A = 2
+			| TK_TIPO TK_ID '=' E
+			{
+				Variavel v;
+				v.nome = $2.label;
+				v.tipo = $1.label;
+
+				if (v.tipo != $4.tipo) {
+					yyerror("Erro: atribuição incompatível (esperando " + v.tipo + ", recebeu " + $4.tipo + ")");
+				}
+				
+				variaveis.insert(v);
+				$$.traducao = $2.traducao + $4.traducao + "\t" + $2.label + " = " + $4.label + ";\n";
+			}
 			| TK_NUM
 			{
-				$$.label = gentempcode("int");
+				$$.label = genTempCode("int");
 				$$.traducao = "\t" + $$.label + " = " + $1.label + ";\n";
 				$$.tipo = "int";
 			}
 			| TK_REAL 
 			{
-				$$.label = gentempcode("float");
+				$$.label = genTempCode("float");
 				$$.traducao = "\t" + $$.label + " = " + $1.label + ";\n";
 				$$.tipo = "float";
 			}
 			| TK_CHAR
 			{
 				std::string s = $1.label;
+				// replace " with '
 				std::replace(s.begin(), s.end(), '\"', '\'');
 				
 				
-				$$.label = gentempcode("char");
+				$$.label = genTempCode("char");
 				$$.traducao = "\t" + $$.label + " = " + s + ";\n";
 				$$.tipo = "char";
 			}
@@ -252,7 +284,7 @@ E 			: E '+' E
 					yyerror("Erro: valor booleano inválido");
 				}
 
-				$$.label = gentempcode("bool");
+				$$.label = genTempCode("bool");
 				$$.traducao = "\t" + $$.label + " = " + $1.label + ";\n";
 				$$.tipo = "bool";
 			}
@@ -268,9 +300,9 @@ E 			: E '+' E
 				if (tipo == "bug") {
 					yyerror("Erro: variável não declarada " + $1.label);
 				}
-				// variaveis.insert($1.label); // <-- registra o uso
-				$$.label = gentempcode(tipo);
+				$$.label = genTempCode(tipo);
 				$$.traducao = "\t" + $$.label + " = " + $1.label + ";\n";
+				$$.tipo = tipo;
 			}
 
 			;
@@ -281,7 +313,7 @@ E 			: E '+' E
 
 int yyparse();
 
-string gentempcode(string tipo)
+string genTempCode(string tipo)
 {
 	var_temp_qnt++;
 	string nome = "t" + to_string(var_temp_qnt);
@@ -290,6 +322,23 @@ string gentempcode(string tipo)
 	v.tipo = tipo;
 	variaveis.insert(v);
 	return nome;
+}
+
+Variavel getVariavel(string nome) 
+{
+	Variavel v;
+	v.nome = nome;
+	v.tipo = "bug";
+	for (const Variavel& var : variaveis) {
+		if (var.nome == nome) {
+			v = var;
+			break;
+		}
+	}
+	if (v.tipo == "bug") {
+		yyerror("Erro: variável não declarada " + nome);
+	}
+	return v;
 }
 
 int main(int argc, char* argv[])

@@ -1,18 +1,6 @@
 int main()
 {
-
-    int A;
-	float c = 3.2;
-	int e = (3 + 3) * 3;
-	char d = "d";
-	bool h = T;
-
-    int a = 1;
-    int b = 2;
-
-    bool j = a ^ b;
-    bool k = a ? b;
-    
-
-
+    float Fl;
+    int Il;
+    Fl = Il + 2.5;
 }

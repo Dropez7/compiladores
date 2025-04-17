@@ -88,7 +88,7 @@ T5 = T4 * T3;
 ```
 
 ---
-- [ ] Atribuição  
+- [X] Atribuição  
   - Deverá permitir a atribuição a uma variável e sua utilização em expressões.
 
 Código na LP:
@@ -115,7 +115,7 @@ A = T5;
 **OBS:** Esse código volta a ter problemas de compilação, pois ainda não resolvemos a alocação da variável no código intermediário.
 
 ---
-- [ ] Declaração  
+- [X] Declaração  
   - Deverá criar uma tabela de símbolos para representar as cédulas de memória alocadas pelo usuário. Esse é um exemplo de declaração explícita, mas outras variações de design são possíveis.
 
 Código na LP:
@@ -142,7 +142,7 @@ T1 = T5;
 **OBS:** É possível adicionar comentários ao código gerado para facilitar a depuração.
 
 ---
-- [ ] Tipo Float  
+- [X] Tipo Float  
   - Deverá ser possível utilizar o tipo `float`. Para isso, será necessário alterar a tabela de símbolos para armazenar o tipo da variável. Além disso, será preciso carregar o tipo resultante entre os nós da expressão.
 
 Código na LP:
@@ -167,7 +167,7 @@ A = T5;
 ```
 
 ---
-- [ ] Tipos char e boolean  
+- [X] Tipos char e boolean  
   - Deverá ser possível declarar e utilizar variáveis dos tipos `char` e `boolean`.
 
 Código na LP:
@@ -192,7 +192,7 @@ T2 = 1;
 
 ---
 
-- [ ] Operadores Relacionais  
+- [X] Operadores Relacionais  
   - Permitir expressões com operadores relacionais (`<`, `<=`, `>`, `>=`, `==`, `!=`). O resultado da operação deve ser tratado como valor lógico.
 
 Código na LP:
@@ -215,7 +215,7 @@ T4 = T3;
 ```
 
 ---
-- [ ] Operadores Lógicos  
+- [X] Operadores Lógicos  
   - Implementar os operadores lógicos `&&`, `||` e `!`. Deve-se verificar a compatibilidade de tipos nas expressões lógicas.
 
 Código na LP:
@@ -223,7 +223,7 @@ Código na LP:
 bool B1;
 bool B2;
 bool R;
-R = B1 && !B2;
+R = B1 ^ ~B2;
 ```
 
 Código Intermediário:
@@ -240,7 +240,7 @@ T5 = T4;
 ```
 
 ---
-- [ ] 11 Conversão Implícita  
+- [X] 11 Conversão Implícita  
   - Deverá ocorrer a conversão automática de `int` para `float` em expressões mistas. Essa conversão deve ser aplicada na geração do código intermediário. Será necessário criar uma tabela de conversão para determinar os tipos resultantes. Estratégias como as usadas em Ada não serão aceitas.
 
 Código na LP:
