@@ -31,12 +31,8 @@ bool operator<(const Variavel& a, const Variavel& b) {
 
 int yylex(void);
 void yyerror(string);
-string gentempcode();
+string gentempcode(string tipo);
 set<string> variaveis_declaradas;
-// set<string> variaveis_int;
-// set<string> variaveis_float;
-// set<string> variaveis_char;
-// set<string> variaveis_bool;
 set<Variavel> variaveis;
 %}
 
@@ -72,6 +68,7 @@ S 			: TK_TIPO TK_MAIN '(' ')' BLOCO
 								"#include <iostream>\n"
 								"#include<string.h>\n"
 								"#include<stdio.h>\n"
+								"#define bool int\n\n"
 								"int main(void) {\n";
 				
 				for (const Variavel& var : variaveis)
@@ -113,25 +110,25 @@ COMANDO 	: E ';'
 
 E 			: E '+' E
 			{
-				$$.label = gentempcode();
+				$$.label = gentempcode("bool");
 				$$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + 
 					" = " + $1.label + " + " + $3.label + ";\n";
 			}
 			| E '-' E
 			{
-				$$.label = gentempcode();
+				$$.label = gentempcode("bool");
 				$$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + 
 					" = " + $1.label + " - " + $3.label + ";\n";
 			}
 			| E '*' E
 			{
-				$$.label = gentempcode();
+				$$.label = gentempcode("bool");
 				$$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + 
 					" = " + $1.label + " * " + $3.label + ";\n";
 			}
 			| E '/' E
 			{
-				$$.label = gentempcode();
+				$$.label = gentempcode("bool");
 				$$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + 
 					" = " + $1.label + " / " + $3.label + ";\n";
 			}
@@ -141,63 +138,63 @@ E 			: E '+' E
 			}
 			| E '^' E
 			{
-				$$.label = gentempcode();
+				$$.label = gentempcode("bool");
 				$$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + 
-					" = ( " + $1.label + " && " + $3.label + ");\n";
+					" = " + $1.label + " && " + $3.label + ";\n";
 				$$.tipo = "bool";
 			}
 			| E '?' E
 			{
-				$$.label = gentempcode();
+				$$.label = gentempcode("bool");
 				$$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + 
-					" = (" + $1.label + " || " + $3.label + ");\n";
+					" = " + $1.label + " || " + $3.label + ";\n";
 				$$.tipo = "bool";
 			}
 			| '~' E
 			{
-				$$.label = gentempcode();
+				$$.label = gentempcode("bool");
 				$$.traducao = $1.traducao + "\t" + $$.label + 
 					" = !" + $1.label + ";\n";
 				$$.tipo = "bool";
 			}
 			| E '<' E
 			{
-				$$.label = gentempcode();
+				$$.label = gentempcode("bool");
 				$$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + 
 					" = " + $1.label + " < " + $3.label + ";\n";
 				$$.tipo = "bool";
 			}
 			| E '>' E
 			{
-				$$.label = gentempcode();
+				$$.label = gentempcode("bool");
 				$$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + 
 					" = " + $1.label + " > " + $3.label + ";\n";
 				$$.tipo = "bool";
 			}
 			| E TK_IGUAL_IGUAL E
 			{
-				$$.label = gentempcode();
+				$$.label = gentempcode("bool");
 				$$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + 
 					" = " + $1.label + " == " + $3.label + ";\n";
 				$$.tipo = "bool";
 			}
 			| E TK_DIFERENTE E
 			{
-				$$.label = gentempcode();
+				$$.label = gentempcode("bool");
 				$$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + 
 					" = " + $1.label + " != " + $3.label + ";\n";
 				$$.tipo = "bool";
 			}
 			| E TK_MAIOR_IGUAL E
 			{
-				$$.label = gentempcode();
+				$$.label = gentempcode("bool");
 				$$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + 
 					" = " + $1.label + " >= " + $3.label + ";\n";
 				$$.tipo = "bool";
 			}
 			| E TK_MENOR_IGUAL E
 			{
-				$$.label = gentempcode();
+				$$.label = gentempcode("bool");
 				$$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + 
 					" = " + $1.label + " <= " + $3.label + ";\n";
 				$$.tipo = "bool";
@@ -215,15 +212,22 @@ E 			: E '+' E
 				variaveis.insert(v);
 				$$.traducao = $2.traducao + $4.traducao + "\t" + $2.label + " = " + $4.label + ";\n";
 			}
+			| TK_TIPO TK_ID
+			{
+				Variavel v;
+				v.nome = $2.label;
+				v.tipo = $1.label;
+				variaveis.insert(v);
+			}
 			| TK_NUM
 			{
-				$$.label = gentempcode();
+				$$.label = gentempcode("int");
 				$$.traducao = "\t" + $$.label + " = " + $1.label + ";\n";
 				$$.tipo = "int";
 			}
 			| TK_REAL 
 			{
-				$$.label = gentempcode();
+				$$.label = gentempcode("float");
 				$$.traducao = "\t" + $$.label + " = " + $1.label + ";\n";
 				$$.tipo = "float";
 			}
@@ -233,7 +237,7 @@ E 			: E '+' E
 				std::replace(s.begin(), s.end(), '\"', '\'');
 				
 				
-				$$.label = gentempcode();
+				$$.label = gentempcode("char");
 				$$.traducao = "\t" + $$.label + " = " + s + ";\n";
 				$$.tipo = "char";
 			}
@@ -248,14 +252,24 @@ E 			: E '+' E
 					yyerror("Erro: valor booleano inválido");
 				}
 
-				$$.label = gentempcode();
+				$$.label = gentempcode("bool");
 				$$.traducao = "\t" + $$.label + " = " + $1.label + ";\n";
 				$$.tipo = "bool";
 			}
 			| TK_ID
 			{
-				variaveis_declaradas.insert($1.label); // <-- registra o uso
-				$$.label = gentempcode();
+				string tipo = "bug";
+				for (const Variavel& var : variaveis) {
+					if (var.nome == $1.label) {
+						tipo = var.tipo;
+						break;
+					}
+				}
+				if (tipo == "bug") {
+					yyerror("Erro: variável não declarada " + $1.label);
+				}
+				// variaveis.insert($1.label); // <-- registra o uso
+				$$.label = gentempcode(tipo);
 				$$.traducao = "\t" + $$.label + " = " + $1.label + ";\n";
 			}
 
@@ -267,11 +281,14 @@ E 			: E '+' E
 
 int yyparse();
 
-string gentempcode()
+string gentempcode(string tipo)
 {
 	var_temp_qnt++;
 	string nome = "t" + to_string(var_temp_qnt);
-	variaveis_declaradas.insert(nome);
+	Variavel v;
+	v.nome = nome;
+	v.tipo = tipo;
+	variaveis.insert(v);
 	return nome;
 }
 
