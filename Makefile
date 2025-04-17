@@ -1,9 +1,9 @@
 SCANNER := lex
-SCANNER_PARAMS := lexico.l
+SCANNER_PARAMS := lex.l
 PARSER := yacc
-PARSER_PARAMS := -d sintatico.y
+PARSER_PARAMS := -d sin.y
 
-all: compile translate
+all: compile translate clean
 
 compile:
 		$(SCANNER) $(SCANNER_PARAMS)
@@ -19,7 +19,7 @@ debug:	PARSER_PARAMS += -Wcounterexamples
 debug: 	all
 
 translate: glf
-		./glf < exemplo.foca
+		./glf < example/exemplo.mpr
 
 clean:
 	rm y.tab.c
