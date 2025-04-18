@@ -1,7 +1,7 @@
 SCANNER := lex
-SCANNER_PARAMS := code/lex.l
+SCANNER_PARAMS := src/lex.l
 PARSER := yacc
-PARSER_PARAMS := -d code/sin.y
+PARSER_PARAMS := -d src/sin.y
 
 all: compile translate clean
 

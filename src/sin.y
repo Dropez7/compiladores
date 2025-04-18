@@ -30,6 +30,8 @@ bool operator<(const Variavel& a, const Variavel& b) {
 
 
 int yylex(void);
+int nLinha = 1;
+int nColuna = 1;
 void yyerror(string);
 string genTempCode(string tipo);
 Variavel getVariavel(string nome);
@@ -111,10 +113,10 @@ E 			: E '+' E
 			{
 				$$.label = genTempCode("int");
 				if ($1.tipo == "char" || $1.tipo == "bool") {
-					yyerror("Erro: operação indisponível para tipo " + $1.tipo);
+					yyerror("operação indisponível para tipo " + $1.tipo);
 				}
 				if ($3.tipo == "char" || $3.tipo == "bool") {
-					yyerror("Erro: operação indisponível para tipo " + $3.tipo);
+					yyerror("operação indisponível para tipo " + $3.tipo);
 				}
 				if ($1.tipo != $3.tipo) {
 					// converte tudo para float
@@ -244,7 +246,7 @@ E 			: E '+' E
 				v.tipo = $1.label;
 
 				if (v.tipo != $4.tipo) {
-					yyerror("Erro: atribuição incompatível (esperando " + v.tipo + ", recebeu " + $4.tipo + ")");
+					yyerror("atribuição incompatível (esperando " + v.tipo + ", recebeu " + $4.tipo + ")");
 				}
 				
 				variaveis.insert(v);
@@ -281,7 +283,7 @@ E 			: E '+' E
 				} else if ($1.label == "F") {
 					$1.label = "0";
 				} else {
-					yyerror("Erro: valor booleano inválido");
+					yyerror("valor booleano inválido");
 				}
 
 				$$.label = genTempCode("bool");
@@ -298,7 +300,7 @@ E 			: E '+' E
 					}
 				}
 				if (tipo == "bug") {
-					yyerror("Erro: variável não declarada " + $1.label);
+					yyerror("variável não declarada " + $1.label);
 				}
 				$$.label = genTempCode(tipo);
 				$$.traducao = "\t" + $$.label + " = " + $1.label + ";\n";
@@ -336,7 +338,7 @@ Variavel getVariavel(string nome)
 		}
 	}
 	if (v.tipo == "bug") {
-		yyerror("Erro: variável não declarada " + nome);
+		yyerror("variável não declarada " + nome);
 	}
 	return v;
 }
@@ -352,6 +354,13 @@ int main(int argc, char* argv[])
 
 void yyerror(string MSG)
 {
-	cout << MSG << endl;
-	exit (0);
-}				
+	if (MSG != "syntax error")
+	{
+		cout << "Erro (Ln " << nLinha << ", Col " << nColuna << "): " << MSG << endl;
+	} else
+	{
+		cout << "Erro (Ln " << nLinha << ", Col " << nColuna << "): " << yytext << endl;
+	}
+	exit(0);
+}
+	
