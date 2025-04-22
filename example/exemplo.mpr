@@ -2,5 +2,5 @@ int main()
 {
     float Fl;
     int Il;
-    Fl = Il Z 2.5;
+    Fl = Il * 2.5;
 }

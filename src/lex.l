@@ -28,7 +28,7 @@ BOOL T|F
 
 [(){}[\];,]	{ nColuna += yyleng; return *yytext; }
 
-[+\-*/]		{ nColuna += yyleng; return *yytext; }
+[+\-*/]		{ nColuna += yyleng; yylval.label = yytext; return TK_ARITMETICO; }
 
 "!="		{ nColuna += yyleng; return TK_DIFERENTE; }
 "<="		{ nColuna += yyleng; return TK_MENOR_IGUAL; }
