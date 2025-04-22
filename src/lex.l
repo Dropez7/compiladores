@@ -34,14 +34,10 @@ BOOL T|F
 "<="		{ nColuna += yyleng; return TK_MENOR_IGUAL; }
 ">="		{ nColuna += yyleng; return TK_MAIOR_IGUAL; }
 "=="		{ nColuna += yyleng; return TK_IGUAL_IGUAL; }
-">"         { nColuna += yyleng; return '>'; }
-"<"         { nColuna += yyleng; return '<'; }
+[\^?~<>]	{ nColuna += yyleng; return *yytext; }
 
 [=]		    { nColuna += yyleng; return *yytext; }
 
-[\^]		{ nColuna += yyleng; return *yytext; }
-[?]	    	{ nColuna += yyleng; return *yytext; }
-[~]		    { nColuna += yyleng; return *yytext; }
 
 {NUM}		{ nColuna += yyleng; yylval.label = yytext; return TK_NUM; }
 {REAL}		{ nColuna += yyleng; yylval.label = yytext; return TK_REAL; }
