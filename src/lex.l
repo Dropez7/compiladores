@@ -24,7 +24,7 @@ BOOL T|F
 
 "main"		{ nColuna += yyleng; return TK_MAIN;}
 
-"int"|"float"|"char"|"bool" { nColuna += yyleng; yylval.label = yytext; return TK_TIPO; }
+{TIPO_VAR} { nColuna += yyleng; yylval.label = yytext; return TK_TIPO; }
 
 [(){}[\];,]	{ nColuna += yyleng; return *yytext; }
 
@@ -49,7 +49,6 @@ BOOL T|F
 {BOOL}      { nColuna += yyleng; yylval.label = yytext; return TK_BOOL; }
 
 {ID}		{ nColuna += yyleng; yylval.label = yytext; return TK_ID; }
-{TIPO_VAR}	{ nColuna += yyleng; yylval.label = yytext; return TIPO_VAR; }
 
 .			{ nColuna += yyleng; *yytext; }
 

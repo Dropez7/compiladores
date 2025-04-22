@@ -10,7 +10,6 @@
 
 using namespace std;
 
-int var_temp_qnt;
 
 struct atributos
 {
@@ -30,9 +29,11 @@ bool operator<(const Variavel& a, const Variavel& b) {
 
 
 int yylex(void);
+int var_temp_qnt;
 int nLinha = 1;
 int nColuna = 1;
 void yyerror(string);
+void isAvailable(string nome);
 string genTempCode(string tipo);
 Variavel getVariavel(string nome);
 set<Variavel> variaveis;
@@ -41,11 +42,7 @@ set<Variavel> variaveis;
 
 %token TK_NUM
 %token TK_MAIN TK_ID TK_REAL TK_CHAR TK_BOOL
-%token TK_FIM TK_ERROR TIPO_VAR
-%token NEWLINE
 %token TK_TIPO
-
-%token TK_SOMA TK_SUB TK_MUL TK_DIV
 %token TK_DIFERENTE TK_MENOR_IGUAL TK_MAIOR_IGUAL TK_IGUAL_IGUAL
 
 
@@ -69,7 +66,9 @@ S 			: TK_TIPO TK_MAIN '(' ')' BLOCO
 				string codigo = "/*Compilador MAPHRA*/\n"
 								"#include<string.h>\n"
 								"#include<stdio.h>\n"
-								"#define bool int\n\n"
+								"#define bool int\n"
+								"#define T 1\n"
+								"#define F 0\n\n"
 								"int main(void) {\n";
 				
 				for (const Variavel& var : variaveis)
@@ -214,6 +213,7 @@ E 			: E '+' E
 			// int A
 			| TK_TIPO TK_ID
 			{
+				isAvailable($2.label);
 				Variavel v;
 				v.nome = $2.label;
 				v.tipo = $1.label;
@@ -231,6 +231,7 @@ E 			: E '+' E
 				}
 				if (tipo == "bug") {
 					// declaração implícita
+					isAvailable($1.label);
 					Variavel v;
 					v.nome = $1.label;
 					v.tipo = $3.tipo;
@@ -241,6 +242,7 @@ E 			: E '+' E
 			// int A = 2
 			| TK_TIPO TK_ID '=' E
 			{
+				isAvailable($2.label);
 				Variavel v;
 				v.nome = $2.label;
 				v.tipo = $1.label;
@@ -277,12 +279,7 @@ E 			: E '+' E
 			}
 			| TK_BOOL 
 			{
-
-				if($1.label == "T") {
-					$1.label = "1";
-				} else if ($1.label == "F") {
-					$1.label = "0";
-				} else {
+				if ($1.label != "T" && $1.label != "F") {
 					yyerror("valor booleano inválido");
 				}
 
@@ -315,10 +312,26 @@ E 			: E '+' E
 
 int yyparse();
 
+void isAvailable(string nome)
+{
+	// verifica se o nome da variavel inclui __var_tmp
+	if (nome.find("__var_tmp") != string::npos) {
+		yyerror("nome de variável reservado " + nome);
+	}
+
+	// verifica se a variável já foi declarada anteriormente
+	for (const Variavel& var : variaveis) {
+		if (var.nome == nome) {
+			yyerror("variável já declarada " + nome);
+		}
+	}
+}
+
+// gera as variáveis temporárias
 string genTempCode(string tipo)
 {
 	var_temp_qnt++;
-	string nome = "t" + to_string(var_temp_qnt);
+	string nome = "__var_tmp" + to_string(var_temp_qnt);
 	Variavel v;
 	v.nome = nome;
 	v.tipo = tipo;
@@ -326,6 +339,7 @@ string genTempCode(string tipo)
 	return nome;
 }
 
+// procura a variável na lista de variáveis declaradas
 Variavel getVariavel(string nome) 
 {
 	Variavel v;
