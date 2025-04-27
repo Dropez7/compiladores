@@ -77,3 +77,27 @@ Variavel getVariavel(string nome)
     }
     return v;
 }
+
+string getTipo(string label) {
+    string tipo = "bug";
+    for (const Variavel& var : variaveis) {
+        if (var.nome == label) {
+            tipo = var.tipo;
+            break;
+        }
+    }
+    return tipo;
+}
+
+bool checkIsPossible(string t1, string t2) {
+    if (t1 == "int" && t2 == "float") {
+        return true;
+    } if (t1 == "float" && t2 == "int") {
+        return true;
+    } if (t1 == "int" && t2 == "int") {
+        return true;
+    } if (t1 == "float" && t2 == "float") {
+        return true;
+    }
+    return false;
+}

@@ -7,7 +7,7 @@
 
 Código na LP: 
 ```C
-1 + 2 + 3
+1 + 2 + 3;
 ```
 
 Código Intermediário:
@@ -25,7 +25,7 @@ T5 = T4 + T3;
 
 Código na LP:
 ```C
-1 + 2 * 3
+1 + 2 * 3;
 ```
 
 Código Intermediário:
@@ -43,7 +43,7 @@ T5 = T4 + T3;
 
 Código na LP:
 ```C
-1 + 2 * 3
+1 + 2 * 3;
 ```
 
 Código Intermediário:
@@ -69,7 +69,7 @@ T5 = T4 + T3;
 
 Código na LP:
 ```C
-(1 + 2) * 3
+(1 + 2) * 3;
 ```
 
 Código Intermediário:
@@ -93,7 +93,7 @@ T5 = T4 * T3;
 
 Código na LP:
 ```C
-A = (A + 2) * 3
+A = (A + 2) * 3;
 ```
 
 Código Intermediário:
@@ -121,7 +121,7 @@ A = T5;
 Código na LP:
 ```C
 int A;
-A = (A + 2) * 3
+A = (A + 2) * 3;
 ```
 
 Código Intermediário:
@@ -148,7 +148,7 @@ T1 = T5;
 Código na LP:
 ```C
 int A;
-A = (A + 2) * 3.0
+A = (A + 2) * 3.0;
 ```
 
 Código Intermediário:
@@ -176,7 +176,7 @@ char C;
 C = 'a';
 
 bool B;
-B = true;
+B = T;
 ```
 
 Código Intermediário:
@@ -267,7 +267,7 @@ T5 = T4;
 **OBS:** A conversão pode ser validada na análise semântica para evitar operações inválidas.
 
 ---
-- [ ] Conversão Explícita  
+- [X] Conversão Explícita  
   - Permitir expressões com casting explícito. A conversão deverá ser aplicada diretamente no código intermediário.
 
 Código na LP:

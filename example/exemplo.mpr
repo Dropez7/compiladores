@@ -1,5 +1,4 @@
 int main()
 {
-    int a;
-    a = 3.14;
+    a = int(3.14) + int(2.71) / int(1.41);
 }

@@ -160,6 +160,17 @@ E 			: E TK_ARITMETICO E
 					" = " + $1.label + " <= " + $3.label + ";\n";
 				$$.tipo = "bool";
 			}
+			// int(3.14)
+			| TK_TIPO '(' E ')'
+			{
+				if (checkIsPossible($1.tipo, $3.tipo)) {
+					$3.tipo = $1.tipo;
+					$$.label = genTempCode($1.tipo);
+					$$.traducao = $3.traducao + "\t" + $$.label + " = (" + $1.tipo + ") " + $3.label + ";\n";
+				} else {
+					yyerror("conversão inválida de " + $3.tipo + " para " + $1.tipo);
+				}
+			}
 			// int A
 			| TK_TIPO TK_ID
 			{
@@ -172,19 +183,14 @@ E 			: E TK_ARITMETICO E
 			// A = 2
 			| TK_ID '=' E
 			{
-				string tipo = "bug";
-				for (const Variavel& var : variaveis) {
-					if (var.nome == $1.label) {
-						tipo = var.tipo;
-						break;
-					}
-				}
+				string tipo = getTipo($1.label);
 				if (tipo == "bug") {
 					// declaração implícita
 					isAvailable($1.label);
 					Variavel v;
 					v.nome = $1.label;
 					v.tipo = $3.tipo;
+					tipo = $3.tipo;
 					variaveis.insert(v);
 				}
 				if (tipo != $3.tipo) {
@@ -223,7 +229,6 @@ E 			: E TK_ARITMETICO E
 					variaveis.insert(v);
 					$$.traducao = $2.traducao + $4.traducao + "\t" + $2.label + " = " + $4.label + ";\n";
 				}
-
 			}
 			| TK_NUM
 			{
@@ -260,13 +265,7 @@ E 			: E TK_ARITMETICO E
 			}
 			| TK_ID
 			{
-				string tipo = "bug";
-				for (const Variavel& var : variaveis) {
-					if (var.nome == $1.label) {
-						tipo = var.tipo;
-						break;
-					}
-				}
+				string tipo = getTipo($1.label);
 				if (tipo == "bug") {
 					yyerror("variável não declarada " + $1.label);
 				}
@@ -274,7 +273,6 @@ E 			: E TK_ARITMETICO E
 				$$.traducao = "\t" + $$.label + " = " + $1.label + ";\n";
 				$$.tipo = tipo;
 			}
-
 			;
 
 %%
