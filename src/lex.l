@@ -44,6 +44,8 @@ BOOL T|F
 {CHAR}		{ nColuna += yyleng; yylval.label = yytext; return TK_CHAR; }
 {BOOL}      { nColuna += yyleng; yylval.label = yytext; return TK_BOOL; }
 
+"print"     { nColuna += yyleng; return TK_PRINT; }
+
 {ID}		{ nColuna += yyleng; yylval.label = yytext; return TK_ID; }
 
 .			{ nColuna += yyleng; *yytext; }

@@ -1,4 +1,7 @@
 int main()
 {
-    a = int(3.14) + int(2.71) / int(1.41);
+    float b = 19.81;
+    int a = 3.14 + b / int(1.41);
+    print(a);
+    print(b);
 }

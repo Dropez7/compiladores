@@ -9,7 +9,7 @@
 
 
 %token TK_NUM
-%token TK_MAIN TK_ID TK_REAL TK_CHAR TK_BOOL
+%token TK_MAIN TK_ID TK_REAL TK_CHAR TK_BOOL TK_PRINT
 %token TK_TIPO TK_ARITMETICO
 %token TK_DIFERENTE TK_MENOR_IGUAL TK_MAIOR_IGUAL TK_IGUAL_IGUAL
 
@@ -164,7 +164,6 @@ E 			: E TK_ARITMETICO E
 			| TK_TIPO '(' E ')'
 			{
 				if (checkIsPossible($1.tipo, $3.tipo)) {
-					$3.tipo = $1.tipo;
 					$$.label = genTempCode($1.tipo);
 					$$.traducao = $3.traducao + "\t" + $$.label + " = (" + $1.tipo + ") " + $3.label + ";\n";
 				} else {
@@ -272,6 +271,25 @@ E 			: E TK_ARITMETICO E
 				$$.label = genTempCode(tipo);
 				$$.traducao = "\t" + $$.label + " = " + $1.label + ";\n";
 				$$.tipo = tipo;
+			}
+			// print - PROVISÓRIO
+			| TK_PRINT '(' TK_ID ')'
+			{
+				string mask;
+				Variavel v = getVariavel($3.label);
+				switch (v.tipo[0]) {
+					case 'i':
+					case 'b':
+						mask = "%d";
+						break;
+					case 'f':
+						mask = "%f";
+						break;
+					case 'c':
+						mask = "%c";
+						break;
+				}
+				$$.traducao = $3.traducao + "\tprintf(\"" + v.nome + ": " + mask + "\\n\", " + v.nome + ");\n";
 			}
 			;
 
