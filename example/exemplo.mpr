@@ -1,6 +1,5 @@
 int main()
 {
-    float Fl;
-    int Il;
-    Fl = Il * 2.5;
+    int a;
+    a = 3.14;
 }

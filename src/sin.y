@@ -187,7 +187,18 @@ E 			: E TK_ARITMETICO E
 					v.tipo = $3.tipo;
 					variaveis.insert(v);
 				}
-				$$.traducao = $1.traducao + $3.traducao + "\t" + $1.label + " = " + $3.label + ";\n";
+				if (tipo != $3.tipo) {
+					string tipos = tipo + $3.tipo;
+					if (tipos == "intfloat") {
+						$$.traducao = $1.traducao + $3.traducao + "\t" + $1.label + " = (int) " + $3.label + ";\n";
+					} else if (tipos == "floatint") {
+						$$.traducao = $1.traducao + $3.traducao + "\t" + $1.label + " = (float) " + $3.label + ";\n";
+					} else {
+						yyerror("atribuição incompatível (esperando " + tipo + ", recebeu " + $3.tipo + ")");
+					}
+				} else {
+					$$.traducao = $1.traducao + $3.traducao + "\t" + $1.label + " = " + $3.label + ";\n";
+				}
 			}
 			// int A = 2
 			| TK_TIPO TK_ID '=' E
@@ -196,13 +207,23 @@ E 			: E TK_ARITMETICO E
 				Variavel v;
 				v.nome = $2.label;
 				v.tipo = $1.label;
-
+				
 				if (v.tipo != $4.tipo) {
-					yyerror("atribuição incompatível (esperando " + v.tipo + ", recebeu " + $4.tipo + ")");
+					string tipos = v.tipo + $4.tipo;
+					if (tipos == "intfloat") {
+						variaveis.insert(v);
+						$$.traducao = $2.traducao + $4.traducao + "\t" + $2.label + " = (int) " + $4.label + ";\n";
+					} else if (tipos == "floatint") {
+						variaveis.insert(v);
+						$$.traducao = $2.traducao + $4.traducao + "\t" + $2.label + " = (float) " + $4.label + ";\n";
+					} else {
+						yyerror("atribuição incompatível (esperando " + v.tipo + ", recebeu " + $4.tipo + ")");
+					}
+				} else {
+					variaveis.insert(v);
+					$$.traducao = $2.traducao + $4.traducao + "\t" + $2.label + " = " + $4.label + ";\n";
 				}
 
-				variaveis.insert(v);
-				$$.traducao = $2.traducao + $4.traducao + "\t" + $2.label + " = " + $4.label + ";\n";
 			}
 			| TK_NUM
 			{

@@ -10,11 +10,6 @@ compile:
 		$(PARSER) $(PARSER_PARAMS)
 		g++ -o glf y.tab.c -ll
 
-run: 	glf
-		clear
-		compile
-		translate
-
 debug:	PARSER_PARAMS += -Wcounterexamples
 debug: 	all
 
@@ -26,3 +21,12 @@ clean:
 	rm y.tab.h
 	rm lex.yy.c
 	rm glf
+	rm -f output.c
+	rm -f output
+
+execute:
+	./glf < example/exemplo.mpr > output.c
+	gcc -o output output.c
+	./output
+
+run: 	compile execute clean
