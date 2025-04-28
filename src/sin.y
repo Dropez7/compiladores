@@ -170,6 +170,22 @@ E 			: E TK_ARITMETICO E
 					yyerror("conversão inválida de " + $3.tipo + " para " + $1.tipo);
 				}
 			}
+			| TK_ID ',' TK_ID '=' TK_ID ',' TK_ID
+			{
+				if (!($1.label == $7.label && $3.label == $5.label)) {
+					                    yyerror("Troca inválida");
+				}
+                		Variavel v1 = getVariavel($1.label);
+                		Variavel v2 = getVariavel($3.label);
+                		if (v1.tipo != v2.tipo) {
+                    			yyerror("Operação entre tipos inválidos (" + v1.tipo + ", " + v2.tipo + ")");
+                		}
+                		string temp_var = genTempCode(v1.tipo);
+                		string l1 = "\t" + temp_var + " = " + v1.nome + ";\n";
+                		string l2 = "\t" + v1.nome + " = " + v2.nome + ";\n";
+                		string l3 = "\t" + v2.nome + " = " + temp_var + ";\n";
+                		$$.traducao = l1 + l2 + l3;
+			}
 			// int A
 			| TK_TIPO TK_ID
 			{
