@@ -32,16 +32,16 @@
 S 			: TK_TIPO TK_MAIN '(' ')' BLOCO
 			{
 				string codigo = "/*Compilador MAPHRA*/\n"
-								"#include<string.h>\n"
-								"#include<stdio.h>\n"
+								"#include <string.h>\n"
+								"#include <stdio.h>\n"
 								"#define bool int\n"
 								"#define T 1\n"
 								"#define F 0\n\n"
 								"int main(void) {\n";
 
 				for (const Variavel& var : variaveis)
-					codigo += "\t" + var.tipo + " " + var.nome + ";\n";
-					//         \t tipo nome;
+					codigo += "\t" + var.tipo + " " + var.id + ";\n";
+					//         \t tipo id;
 
 				codigo += "\n";
 
@@ -193,33 +193,29 @@ E 			: E TK_ARITMETICO E
 				Variavel v;
 				v.nome = $2.label;
 				v.tipo = $1.label;
+				v.id = genId();
 				variaveis.insert(v);
 			}
 			// A = 2
 			| TK_ID '=' E
 			{
-				string tipo = getTipo($1.label);
-				if (tipo == "bug") {
+				Variavel v;
+				bool found = false;
+				for (const Variavel& var : variaveis) {
+					if (var.nome == $1.label) {
+						v = var;
+						found = true;
+						break;
+					}
+				}
+				if (!found) {
 					// declaração implícita
-					isAvailable($1.label);
-					Variavel v;
 					v.nome = $1.label;
 					v.tipo = $3.tipo;
-					tipo = $3.tipo;
+					v.id = genId();
 					variaveis.insert(v);
 				}
-				if (tipo != $3.tipo) {
-					string tipos = tipo + $3.tipo;
-					if (tipos == "intfloat") {
-						$$.traducao = $1.traducao + $3.traducao + "\t" + $1.label + " = (int) " + $3.label + ";\n";
-					} else if (tipos == "floatint") {
-						$$.traducao = $1.traducao + $3.traducao + "\t" + $1.label + " = (float) " + $3.label + ";\n";
-					} else {
-						yyerror("atribuição incompatível (esperando " + tipo + ", recebeu " + $3.tipo + ")");
-					}
-				} else {
-					$$.traducao = $1.traducao + $3.traducao + "\t" + $1.label + " = " + $3.label + ";\n";
-				}
+				$$.traducao = convertImplicit($1, $3, v);
 			}
 			// int A = 2
 			| TK_TIPO TK_ID '=' E
@@ -228,22 +224,10 @@ E 			: E TK_ARITMETICO E
 				Variavel v;
 				v.nome = $2.label;
 				v.tipo = $1.label;
+				v.id = genId();
 				
-				if (v.tipo != $4.tipo) {
-					string tipos = v.tipo + $4.tipo;
-					if (tipos == "intfloat") {
-						variaveis.insert(v);
-						$$.traducao = $2.traducao + $4.traducao + "\t" + $2.label + " = (int) " + $4.label + ";\n";
-					} else if (tipos == "floatint") {
-						variaveis.insert(v);
-						$$.traducao = $2.traducao + $4.traducao + "\t" + $2.label + " = (float) " + $4.label + ";\n";
-					} else {
-						yyerror("atribuição incompatível (esperando " + v.tipo + ", recebeu " + $4.tipo + ")");
-					}
-				} else {
-					variaveis.insert(v);
-					$$.traducao = $2.traducao + $4.traducao + "\t" + $2.label + " = " + $4.label + ";\n";
-				}
+				variaveis.insert(v);
+				$$.traducao = convertImplicit($2, $4, v);
 			}
 			| TK_NUM
 			{
@@ -280,13 +264,10 @@ E 			: E TK_ARITMETICO E
 			}
 			| TK_ID
 			{
-				string tipo = getTipo($1.label);
-				if (tipo == "bug") {
-					yyerror("variável não declarada " + $1.label);
-				}
-				$$.label = genTempCode(tipo);
-				$$.traducao = "\t" + $$.label + " = " + $1.label + ";\n";
-				$$.tipo = tipo;
+				Variavel v = getVariavel($1.label);
+				$$.label = genTempCode(v.tipo);
+				$$.traducao = "\t" + $$.label + " = " + v.id + ";\n";
+				$$.tipo = v.tipo;
 			}
 			// print - PROVISÓRIO
 			| TK_PRINT '(' TK_ID ')'
@@ -305,7 +286,7 @@ E 			: E TK_ARITMETICO E
 						mask = "%c";
 						break;
 				}
-				$$.traducao = $3.traducao + "\tprintf(\"" + v.nome + ": " + mask + "\\n\", " + v.nome + ");\n";
+				$$.traducao = $3.traducao + "\tprintf(\"" + v.nome + ": " + mask + "\\n\", " + v.id + ");\n";
 			}
 			;
 

@@ -18,9 +18,10 @@ struct Variavel
 {
     string nome;
     string tipo;
+    string id;
 };
 bool operator<(const Variavel& a, const Variavel& b) {
-    return a.nome < b.nome;
+    return a.id < b.id;
 }
 
 
@@ -35,11 +36,6 @@ int yyparse();
 
 void isAvailable(string nome)
 {
-    // verifica se o nome da variavel inclui __var_tmp
-    if (nome.find("__var_tmp") != string::npos) {
-        yyerror("nome de variável reservado " + nome);
-    }
-
     // verifica se a variável já foi declarada anteriormente
     for (const Variavel& var : variaveis) {
         if (var.nome == nome) {
@@ -48,16 +44,20 @@ void isAvailable(string nome)
     }
 }
 
+string genId()
+{
+    return "t" + to_string(var_temp_qnt++);
+}
+
 // gera as variáveis temporárias
 string genTempCode(string tipo)
 {
-    var_temp_qnt++;
-    string nome = "__var_tmp" + to_string(var_temp_qnt);
+    string id = genId();
     Variavel v;
-    v.nome = nome;
+    v.id = id;
     v.tipo = tipo;
     variaveis.insert(v);
-    return nome;
+    return id;
 }
 
 // procura a variável na lista de variáveis declaradas
@@ -78,15 +78,22 @@ Variavel getVariavel(string nome)
     return v;
 }
 
-string getTipo(string label) {
-    string tipo = "bug";
-    for (const Variavel& var : variaveis) {
-        if (var.nome == label) {
-            tipo = var.tipo;
-            break;
+string convertImplicit(atributos a, atributos b, Variavel v) {
+    if (v.tipo != b.tipo) {
+        string tipos = v.tipo + b.tipo;
+        if (tipos == "intfloat") {
+            return a.traducao + b.traducao + "\t" + v.id + " = (int) " + b.label + ";\n";
+        }
+        else if (tipos == "floatint") {
+            return a.traducao + b.traducao + "\t" + v.id + " = (float) " + b.label + ";\n";
+        }
+        else {
+            yyerror("atribuição incompatível (esperando " + v.tipo + ", recebeu " + b.tipo + ")");
         }
     }
-    return tipo;
+    else {
+        return a.traducao + b.traducao + "\t" + v.id + " = " + b.label + ";\n";
+    }
 }
 
 bool checkIsPossible(string t1, string t2) {
