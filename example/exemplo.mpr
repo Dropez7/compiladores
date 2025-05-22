@@ -1,7 +1,4 @@
-int main()
-{
-    float b = 19.81;
-    int a = 3.14 + b / int(1.41);
-    print(a);
-    print(b);
-}
+    float b = 19.81
+    int a = 3.14 + b / int(1.41)
+    print(a)
+    print(b)

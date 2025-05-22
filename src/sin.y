@@ -29,7 +29,7 @@
 
 %%
 
-S 			: TK_TIPO TK_MAIN '(' ')' BLOCO
+S : 		TK_TIPO TK_MAIN '(' ')' BLOCO
 			{
 				string codigo = "/*Compilador MAPHRA*/\n"
 								"#include <string.h>\n"
@@ -41,17 +41,33 @@ S 			: TK_TIPO TK_MAIN '(' ')' BLOCO
 
 				for (const Variavel& var : variaveis)
 					codigo += "\t" + var.tipo + " " + var.id + ";\n";
-					//         \t tipo id;
 
 				codigo += "\n";
-
 				codigo += $5.traducao;
+				codigo += "\treturn 0;\n";
+				codigo += "}";
+				
+				cout << codigo << endl;
+			}
+			| COMANDOS
+			{
+				string codigo = "/*Compilador MAPHRA*/\n"
+								"#include <string.h>\n"
+								"#include <stdio.h>\n"
+								"#define bool int\n"
+								"#define T 1\n"
+								"#define F 0\n\n";
 
-				codigo += 	"\treturn 0;"
-							"\n}";
+				for (const Variavel& var : variaveis)
+					codigo += var.tipo + " " + var.id + ";\n";
+
+				codigo += "\n";
+				codigo += $1.traducao;
 
 				cout << codigo << endl;
 			}
+			;
+
 			;
 
 BLOCO		: '{' COMANDOS '}'
@@ -71,6 +87,11 @@ COMANDOS	: COMANDO COMANDOS
 			;
 
 COMANDO 	: E ';'
+			{
+				$$ = $1;
+			}
+			|
+			E
 			{
 				$$ = $1;
 			}
