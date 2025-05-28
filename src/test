@@ -1,5 +1,0 @@
-comando -> if (e) comando
-"label" = !$1.label
-if ("label") goto fim
-    tradcomando
-fim_1
