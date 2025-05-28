@@ -5,6 +5,32 @@
 #include <set>
 #include <algorithm>
 #include "src/utils.hpp"
+
+void genCodigo(string traducao) {
+	string codigo = "/*Compilador MAPHRA*/\n"
+					"#include <string.h>\n"
+					"#include <stdio.h>\n"
+					"#define bool int\n"
+					"#define T 1\n"
+					"#define F 0\n\n"
+					"int main(void) {\n";
+
+	for (const Variavel& var : variaveis) {
+		if (var.nome == var.id.substr(1)) {
+			codigo += "\t" + var.tipo + " " + var.id + ";\n";
+		} else {
+			codigo += "\t" + var.tipo + " " + var.id + "; // " + var.nome + "\n";
+		}
+	}
+	
+	codigo += "\n";
+	codigo += traducao;
+	codigo += "\treturn 0;\n";
+	codigo += "}";
+	
+	cout << codigo << endl;
+}
+
 %}
 
 
@@ -31,48 +57,19 @@
 
 S : 		TK_TIPO TK_MAIN '(' ')' BLOCO
 			{
-				string codigo = "/*Compilador MAPHRA*/\n"
-								"#include <string.h>\n"
-								"#include <stdio.h>\n"
-								"#define bool int\n"
-								"#define T 1\n"
-								"#define F 0\n\n"
-								"int main(void) {\n";
-
-				for (const Variavel& var : variaveis)
-					codigo += "\t" + var.tipo + " " + var.id + ";\n";
-
-				codigo += "\n";
-				codigo += $5.traducao;
-				codigo += "\treturn 0;\n";
-				codigo += "}";
-				
-				cout << codigo << endl;
+				genCodigo($5.traducao);
 			}
-			| COMANDOS
+			| { entrar_escopo(); } COMANDOS
 			{
-				string codigo = "/*Compilador MAPHRA*/\n"
-								"#include <string.h>\n"
-								"#include <stdio.h>\n"
-								"#define bool int\n"
-								"#define T 1\n"
-								"#define F 0\n\n";
-
-				for (const Variavel& var : variaveis)
-					codigo += var.tipo + " " + var.id + ";\n";
-
-				codigo += "\n";
-				codigo += $1.traducao;
-
-				cout << codigo << endl;
+				genCodigo($2.traducao);
 			}
 			;
 
 			;
-
-BLOCO		: '{' COMANDOS '}'
+BLOCO : '{' { entrar_escopo(); } COMANDOS '}'
 			{
-				$$.traducao = $2.traducao;
+				sair_escopo();
+				$$.traducao = $3.traducao;
 			}
 			;
 
@@ -97,7 +94,11 @@ COMANDO 	: E ';'
 			}
 			;
 
-E 			: E TK_ARITMETICO E
+E 			: BLOCO
+			{
+				$$.traducao = $1.traducao;
+			}
+			| E TK_ARITMETICO E
 			{
 				$$.label = genTempCode("int");
 				if ($1.tipo == "char" || $1.tipo == "bool") {
@@ -195,44 +196,24 @@ E 			: E TK_ARITMETICO E
 			// int A
 			| TK_TIPO TK_ID
 			{
-				isAvailable($2.label);
-				Variavel v;
-				v.nome = $2.label;
-				v.tipo = $1.label;
-				v.id = genId();
-				variaveis.insert(v);
+				declararVariavel($2.label, $1.label);
 			}
 			// A = 2
 			| TK_ID '=' E
 			{
-				Variavel v;
-				bool found = false;
-				for (const Variavel& var : variaveis) {
-					if (var.nome == $1.label) {
-						v = var;
-						found = true;
-						break;
-					}
-				}
+				Variavel v = getVariavel($1.label, true);
+				bool found = v.id != "<error_id>";
 				if (!found) {
-					// declaração implícita
-					v.nome = $1.label;
-					v.tipo = $3.tipo;
-					v.id = genId();
-					variaveis.insert(v);
+					declararVariavel($1.label, $3.tipo);
+					v = getVariavel($1.label);
 				}
 				$$.traducao = convertImplicit($1, $3, v);
 			}
 			// int A = 2
 			| TK_TIPO TK_ID '=' E
 			{
-				isAvailable($2.label);
-				Variavel v;
-				v.nome = $2.label;
-				v.tipo = $1.label;
-				v.id = genId();
-				
-				variaveis.insert(v);
+				declararVariavel($2.label, $1.label);
+				Variavel v = getVariavel($2.label);
 				$$.traducao = convertImplicit($2, $4, v);
 			}
 			| TK_NUM
@@ -303,8 +284,9 @@ E 			: E TK_ARITMETICO E
 int main(int argc, char* argv[])
 {
 	var_temp_qnt = 0;
-
+	entrar_escopo();
 	yyparse();
+	sair_escopo();
 
 	return 0;
 }

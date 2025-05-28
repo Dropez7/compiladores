@@ -1,5 +1,9 @@
 int main() {
-    float b = 19.81
-    int a = 3.14 + b / int(1.41)
-    ~a
+    a = 10
+    {
+        b = 15
+        print(b)
+        print(a)
+    }
+    print(b)
 }
