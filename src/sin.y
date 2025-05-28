@@ -11,7 +11,7 @@
 %token TK_NUM
 %token TK_MAIN TK_ID TK_REAL TK_CHAR TK_BOOL TK_PRINT
 %token TK_TIPO TK_ARITMETICO
-%token TK_DIFERENTE TK_MENOR_IGUAL TK_MAIOR_IGUAL TK_IGUAL_IGUAL
+%token TK_RELACIONAL
 
 
 
@@ -114,6 +114,24 @@ E 			: E TK_ARITMETICO E
 				$$.traducao = $1.traducao + $3.traducao + "\t" + $$.label +
 					" = " + $1.label + " " + $2.label + " " + $3.label + ";\n";
 			}
+			| E TK_RELACIONAL E
+			{
+				$$.label = genTempCode("bool");
+				if ($1.tipo == "char" || $1.tipo == "bool") {
+					yyerror("operação indisponível para tipo " + $1.tipo);
+				}
+				if ($3.tipo == "char" || $3.tipo == "bool") {
+					yyerror("operação indisponível para tipo " + $3.tipo);
+				}
+				if ($1.tipo != $3.tipo) {
+					// converte tudo para float
+					$1.traducao += ($1.tipo != "float") ? "\t" + $$.label + " = (float) " + $1.label + ";\n" : "";
+					$3.traducao += ($3.tipo != "float") ? "\t" + $$.label + " = (float) " + $3.label + ";\n" : "";
+				}
+				$$.traducao = $1.traducao + $3.traducao + "\t" + $$.label +
+					" = " + $1.label + " == " + $3.label + ";\n";
+				$$.tipo = "bool";
+			}
 			| '(' E ')'
 			{
 				$$ = $2;
@@ -121,12 +139,18 @@ E 			: E TK_ARITMETICO E
 			| E '^' E
 			{
 				$$.label = genTempCode("bool");
+				if ($1.tipo != "bool" || $3.tipo != "bool") {
+					yyerror("operação (^) indisponível para tipo " + $1.tipo + " e " + $3.tipo);
+				}
 				$$.traducao = $1.traducao + $3.traducao + "\t" + $$.label +
 					" = " + $1.label + " && " + $3.label + ";\n";
 				$$.tipo = "bool";
 			}
 			| E '?' E
 			{
+				if ($1.tipo != "bool") {
+					yyerror("operação (?) indisponível para tipo " + $1.tipo);
+				}
 				$$.label = genTempCode("bool");
 				$$.traducao = $1.traducao + $3.traducao + "\t" + $$.label +
 					" = " + $1.label + " || " + $3.label + ";\n";
@@ -134,51 +158,12 @@ E 			: E TK_ARITMETICO E
 			}
 			| '~' E
 			{
+				if ($1.tipo != "bool") {
+					yyerror("operação (~) indisponível para tipo " + $1.tipo);
+				}
 				$$.label = genTempCode("bool");
 				$$.traducao = $1.traducao + "\t" + $$.label +
 					" = !" + $1.label + ";\n";
-				$$.tipo = "bool";
-			}
-			| E '<' E
-			{
-				$$.label = genTempCode("bool");
-				$$.traducao = $1.traducao + $3.traducao + "\t" + $$.label +
-					" = " + $1.label + " < " + $3.label + ";\n";
-				$$.tipo = "bool";
-			}
-			| E '>' E
-			{
-				$$.label = genTempCode("bool");
-				$$.traducao = $1.traducao + $3.traducao + "\t" + $$.label +
-					" = " + $1.label + " > " + $3.label + ";\n";
-				$$.tipo = "bool";
-			}
-			| E TK_IGUAL_IGUAL E
-			{
-				$$.label = genTempCode("bool");
-				$$.traducao = $1.traducao + $3.traducao + "\t" + $$.label +
-					" = " + $1.label + " == " + $3.label + ";\n";
-				$$.tipo = "bool";
-			}
-			| E TK_DIFERENTE E
-			{
-				$$.label = genTempCode("bool");
-				$$.traducao = $1.traducao + $3.traducao + "\t" + $$.label +
-					" = " + $1.label + " != " + $3.label + ";\n";
-				$$.tipo = "bool";
-			}
-			| E TK_MAIOR_IGUAL E
-			{
-				$$.label = genTempCode("bool");
-				$$.traducao = $1.traducao + $3.traducao + "\t" + $$.label +
-					" = " + $1.label + " >= " + $3.label + ";\n";
-				$$.tipo = "bool";
-			}
-			| E TK_MENOR_IGUAL E
-			{
-				$$.label = genTempCode("bool");
-				$$.traducao = $1.traducao + $3.traducao + "\t" + $$.label +
-					" = " + $1.label + " <= " + $3.label + ";\n";
 				$$.tipo = "bool";
 			}
 			// int(3.14)

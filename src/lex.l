@@ -30,11 +30,8 @@ BOOL T|F
 
 [+\-*/]		{ nColuna += yyleng; yylval.label = yytext; return TK_ARITMETICO; }
 
-"!="		{ nColuna += yyleng; return TK_DIFERENTE; }
-"<="		{ nColuna += yyleng; return TK_MENOR_IGUAL; }
-">="		{ nColuna += yyleng; return TK_MAIOR_IGUAL; }
-"=="		{ nColuna += yyleng; return TK_IGUAL_IGUAL; }
-[\^?~<>]	{ nColuna += yyleng; return *yytext; }
+"!="|"<="|">="|"=="|"<"|">"		{ nColuna += yyleng; return TK_RELACIONAL; }
+[\^?~]	{ nColuna += yyleng; return *yytext; }
 
 [=]		    { nColuna += yyleng; return *yytext; }
 
