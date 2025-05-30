@@ -1,9 +1,13 @@
 int main() {
-    a = 10
-    {
-        b = 15
-        print(b)
-        print(a)
+    a =  200
+    x = 1
+    y = 2
+    z = 3
+    if a == 10 {
+        print(x)
+    } else if a < 5 {
+        print(y)
+    } else {
+        print(z)
     }
-    print(b)
 }

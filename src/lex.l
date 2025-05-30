@@ -24,13 +24,16 @@ BOOL T|F
 
 "main"		{ nColuna += yyleng; return TK_MAIN;}
 
+"if"        { nColuna += yyleng; return TK_IF; }
+"else"|"helcio"      { nColuna += yyleng; return TK_ELSE; }
+
 {TIPO_VAR} { nColuna += yyleng; yylval.label = yytext; yylval.tipo = yytext; return TK_TIPO; }
 
 [(){}[\];,]	{ nColuna += yyleng; return *yytext; }
 
 [+\-*/]		{ nColuna += yyleng; yylval.label = yytext; return TK_ARITMETICO; }
 
-"!="|"<="|">="|"=="|"<"|">"		{ nColuna += yyleng; return TK_RELACIONAL; }
+"!="|"<="|">="|"=="|"<"|">"		{ nColuna += yyleng; yylval.label = yytext; return TK_RELACIONAL; }
 [\^?~]	{ nColuna += yyleng; return *yytext; }
 
 [=]		    { nColuna += yyleng; return *yytext; }

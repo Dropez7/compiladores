@@ -21,7 +21,7 @@ struct Variavel
     string tipo;
     string id;
 };
-bool operator<(const Variavel &a, const Variavel &b)
+bool operator<(const Variavel& a, const Variavel& b)
 {
     return a.id < b.id;
 }
@@ -29,6 +29,7 @@ bool operator<(const Variavel &a, const Variavel &b)
 int yylex();
 int yyparse();
 int var_temp_qnt;
+int label_qnt;
 int nLinha = 1;
 int nColuna = 1;
 void yyerror(string);
@@ -38,6 +39,11 @@ vector<map<string, Variavel>> pilha_escopos;
 string genId()
 {
     return "t" + to_string(var_temp_qnt++);
+}
+
+string genLabel()
+{
+    return "L" + to_string(label_qnt++);
 }
 
 void entrar_escopo()
@@ -53,14 +59,14 @@ void sair_escopo()
         yyerror("pilha de escopo vazia!");
 }
 
-void declararVariavel(const string &nome_var, const string &tipo_var)
+void declararVariavel(const string& nome_var, const string& tipo_var)
 {
     if (pilha_escopos.empty())
     {
         yyerror("Não há escopo ativo para declarar a variável '" + nome_var + "'.");
         return;
     }
-    map<string, Variavel> &escopo_atual = pilha_escopos.back();
+    map<string, Variavel>& escopo_atual = pilha_escopos.back();
 
     if (escopo_atual.count(nome_var))
     {
@@ -78,7 +84,7 @@ void declararVariavel(const string &nome_var, const string &tipo_var)
 }
 
 // busca variavel no escopo
-Variavel getVariavel(const string &nome_var, bool turnOffError = false)
+Variavel getVariavel(const string& nome_var, bool turnOffError = false)
 {
     if (pilha_escopos.empty())
     {
@@ -91,7 +97,7 @@ Variavel getVariavel(const string &nome_var, bool turnOffError = false)
     }
     for (auto it_escopo = pilha_escopos.rbegin(); it_escopo != pilha_escopos.rend(); ++it_escopo)
     {
-        const map<string, Variavel> &escopo_para_busca = *it_escopo;
+        const map<string, Variavel>& escopo_para_busca = *it_escopo;
         if (escopo_para_busca.count(nome_var))
         {
             return escopo_para_busca.at(nome_var);
@@ -115,7 +121,7 @@ string genTempCode(string tipo)
     {
         yyerror("Erro Critico: Nao ha escopo ativo para declarar a variavel temporaria.");
     }
-    map<string, Variavel> &escopo_atual = pilha_escopos.back();
+    map<string, Variavel>& escopo_atual = pilha_escopos.back();
 
     Variavel v;
     v.nome = to_string(var_temp_qnt);

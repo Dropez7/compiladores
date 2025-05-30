@@ -37,6 +37,7 @@ void genCodigo(string traducao) {
 %token TK_NUM
 %token TK_MAIN TK_ID TK_REAL TK_CHAR TK_BOOL TK_PRINT
 %token TK_TIPO TK_ARITMETICO
+%token TK_IF TK_ELSE
 %token TK_RELACIONAL
 
 
@@ -92,6 +93,30 @@ COMANDO 	: E ';'
 			{
 				$$ = $1;
 			}
+			| BLOCO
+			{
+				$$ = $1;
+			}
+			| TK_IF E BLOCO
+			{
+				if ($2.tipo != "bool") {
+					yyerror("condição deve ser do tipo booleano");
+				}
+				string label = genLabel();
+				$$.traducao = $2.traducao + "\tif (!" + $2.label + ") goto " + label + ";\n\t" + $3.traducao + "\t" + label + ":\n";
+			}
+			| TK_IF E BLOCO TK_ELSE COMANDO
+			{
+				if ($2.tipo != "bool") {
+					yyerror("condição deve ser do tipo booleano");
+				}
+				string l1 = genLabel();
+				string l2 = genLabel();
+				$$.traducao = $2.traducao + "\tif (!" + $2.label + ") goto " + l1 + ";\n\t" +
+					$3.traducao + "\tgoto " + l2 + ";\n" +
+					l1 + ":\n\t" + $5.traducao + "\n" +
+					l2 + ":\n";
+			}
 			;
 
 E 			: BLOCO
@@ -130,7 +155,7 @@ E 			: BLOCO
 					$3.traducao += ($3.tipo != "float") ? "\t" + $$.label + " = (float) " + $3.label + ";\n" : "";
 				}
 				$$.traducao = $1.traducao + $3.traducao + "\t" + $$.label +
-					" = " + $1.label + " == " + $3.label + ";\n";
+					" = " + $1.label + " " + $2.label + " " + $3.label + ";\n";
 				$$.tipo = "bool";
 			}
 			| '(' E ')'
@@ -177,6 +202,7 @@ E 			: BLOCO
 					yyerror("conversão inválida de " + $3.tipo + " para " + $1.tipo);
 				}
 			}
+			// A, B = B, A
 			| TK_ID ',' TK_ID '=' TK_ID ',' TK_ID
 			{
 				if (!($1.label == $7.label && $3.label == $5.label)) {
