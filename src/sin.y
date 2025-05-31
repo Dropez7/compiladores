@@ -36,8 +36,8 @@ void genCodigo(string traducao) {
 
 %token TK_NUM
 %token TK_MAIN TK_ID TK_REAL TK_CHAR TK_BOOL TK_PRINT
-%token TK_TIPO TK_ARITMETICO
-%token TK_IF TK_ELSE TK_LACO TK_POTOPOTO
+%token TK_TIPO TK_ARITMETICO TK_UNARIO TK_PREGUICA
+%token TK_IF TK_ELSE TK_LACO TK_DO
 %token TK_RELACIONAL
 
 
@@ -47,6 +47,8 @@ void genCodigo(string traducao) {
 %start S
 
 %right '='
+%right TK_UNARIO
+%right TK_PREGUICA
 %left '?'
 %left '^'
 %left '<' '>'
@@ -127,9 +129,20 @@ COMANDO 	: E ';'
 				}
 				string inicio = genLabel();
 				string fim = genLabel();
-				$$.traducao = inicio + ":\n\t" + $2.traducao +  "if (!" + $2.label + ") goto " + fim + ";\n\t" +
+				$$.traducao = inicio + ":\n" + $2.traducao +  "if (!" + $2.label + ") goto " + fim + ";\n\t" +
 					$3.traducao + "\tgoto " + inicio + ";\n" +
 					fim + ":\n"; 
+			}
+			| TK_DO BLOCO TK_LACO E
+			{
+				if ($4.tipo != "bool") {
+					yyerror("condição deve ser do tipo booleano");
+				}
+				string inicio = genLabel();
+				string fim = genLabel();
+				$$.traducao = inicio + ":\n" + $2.traducao + $4.traducao + "if (!" + $4.label + ") goto " + fim + ";\n\t" +
+					$3.traducao + "\tgoto " + inicio + ";\n" +
+					fim + ":\n";
 			}
 			| TK_LACO '(' E ';' E ';' E ')' BLOCO
             {
@@ -229,6 +242,12 @@ E 			: BLOCO
 					" = " + $1.label + " " + $2.label + " " + $3.label + ";\n";
 				$$.tipo = "bool";
 			}
+			| TK_ID TK_UNARIO
+			{
+				string op = $2.label.substr(0, 1);
+				Variavel v = getVariavel($1.label);
+				$$.traducao = $1.traducao + "\t" + v.id + " = " + v.id + $2.label + "1;\n";
+			}
 			| '(' E ')'
 			{
 				$$ = $2;
@@ -305,6 +324,15 @@ E 			: BLOCO
 					v = getVariavel($1.label);
 				}
 				$$.traducao = convertImplicit($1, $3, v);
+			}
+			| TK_ID TK_PREGUICA E
+			{
+				Variavel v = getVariavel($1.label);
+				if (v.tipo != $3.tipo) {
+					yyerror("Operação entre tipos inválidos (" + v.tipo + ", " + $3.tipo + ")");
+				}
+				string op = $2.label.substr(0, 1);
+				$$.traducao = $1.traducao + $3.traducao + "\t" + v.id + " = " + v.id + " " + op + " " + $3.label + ";\n";
 			}
 			// int A = 2
 			| TK_TIPO TK_ID '=' E

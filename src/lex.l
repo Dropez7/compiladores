@@ -27,13 +27,15 @@ BOOL T|F
 "if"        { nColuna += yyleng; return TK_IF; }
 "else"|"helcio"      { nColuna += yyleng; return TK_ELSE; }
 "for"       { nColuna += yyleng; return TK_LACO; }
-".."        { nColuna += yyleng; return TK_POTOPOTO; }
-
+"do"        { nColuna += yyleng; return TK_DO; }
 {TIPO_VAR} { nColuna += yyleng; yylval.label = yytext; yylval.tipo = yytext; return TK_TIPO; }
 
 [(){}[\];,]	{ nColuna += yyleng; return *yytext; }
 
 [+\-*/]		{ nColuna += yyleng; yylval.label = yytext; return TK_ARITMETICO; }
+"++"|"--"    { nColuna += yyleng; yylval.label = yytext; return TK_UNARIO; }
+"+="|"-="|"*="|"/="	{ nColuna += yyleng; yylval.label = yytext; return TK_PREGUICA; }
+
 
 "!="|"<="|">="|"=="|"<"|">"		{ nColuna += yyleng; yylval.label = yytext; return TK_RELACIONAL; }
 [\^?~]	{ nColuna += yyleng; return *yytext; }
