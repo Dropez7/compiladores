@@ -1,7 +1,6 @@
 main() {
-    a = 0
-    do {
-        a *= 2
-        print(a)
-    } for (a < 10)
+    string a = "hello "
+    string b = "world"
+    c = a + b
+    print(c)
 }

@@ -10,6 +10,7 @@ void genCodigo(string traducao) {
 	string codigo = "/*Compilador MAPHRA*/\n"
 					"#include <string.h>\n"
 					"#include <stdio.h>\n"
+					"#include <stdlib.h>\n"
 					"#define bool int\n"
 					"#define T 1\n"
 					"#define F 0\n\n"
@@ -25,6 +26,9 @@ void genCodigo(string traducao) {
 	
 	codigo += "\n";
 	codigo += traducao;
+	for (const string& var : free_vars) {
+		codigo += "\tfree(" + var + ");\n";
+	}
 	codigo += "\treturn 0;\n";
 	codigo += "}";
 	
@@ -34,8 +38,8 @@ void genCodigo(string traducao) {
 %}
 
 
-%token TK_NUM
-%token TK_MAIN TK_ID TK_REAL TK_CHAR TK_BOOL TK_PRINT
+%token TK_NUM TK_REAL TK_CHAR TK_BOOL TK_STRING
+%token TK_MAIN TK_ID TK_PRINT
 %token TK_TIPO TK_ARITMETICO TK_UNARIO TK_PREGUICA
 %token TK_IF TK_ELSE TK_LACO TK_DO
 %token TK_RELACIONAL
@@ -209,20 +213,40 @@ E 			: BLOCO
 			}
 			| E TK_ARITMETICO E
 			{
-				$$.label = genTempCode("int");
-				if ($1.tipo == "char" || $1.tipo == "bool") {
-					yyerror("operação indisponível para tipo " + $1.tipo);
+				if ($2.label == "+" && $1.tipo == "char*" && $3.tipo == "char*") {
+					$$.label = genTempCode("char*");
+					string x0 = genTempCode("int");
+					string x1 = genTempCode("int");
+					string x2 = genTempCode("int");
+					string x3 = genTempCode("int");
+					string x4 = genTempCode("char*");
+					$$.traducao = $1.traducao + $3.traducao 
+						+ "\t" + x0 + " = sizeof(" + $1.label + ");\n" // x0 = sizeof(s1.id)
+						+ "\t" + x1 + " = sizeof(" + $3.label + ");\n" // x1 = sizeof(s2.id)
+						+ "\t" + x2 + " = " + x0 + " + " + x1 + ";\n"  // x2 = x0 + x1
+						+ "\t" + x3 + " = " + x2 + " - 1;\n"           // x3 = x2 - 1
+						+ "\t" + x4 + " = malloc(" + x3 + ");\n"       // x4 = malloc(x3)
+						+ "\tstrcpy(" + x4 + ", " + $1.label + ");\n"  // strcpy(x4, s1.id)
+						+ "\tstrcat(" + x4 + ", " + $3.label + ");\n"  // strcat(x4, s2.id)
+						+ "\t" + $$.label + " = " + x4 + ";\n";        // s1.id = x4
+					$$.tipo = "char*";
+					free_vars.insert($$.label);
+				} else {
+					$$.label = genTempCode("int");
+					if ($1.tipo == "char" || $1.tipo == "bool") {
+						yyerror("operação indisponível para tipo " + $1.tipo);
+					}
+					if ($3.tipo == "char" || $3.tipo == "bool") {
+						yyerror("operação indisponível para tipo " + $3.tipo);
+					}
+					if ($1.tipo != $3.tipo) {
+						// converte tudo para float
+						$1.traducao += ($1.tipo != "float") ? "\t" + $$.label + " = (float) " + $1.label + ";\n" : "";
+						$3.traducao += ($3.tipo != "float") ? "\t" + $$.label + " = (float) " + $3.label + ";\n" : "";
+					}
+					$$.traducao = $1.traducao + $3.traducao + "\t" + $$.label +
+						" = " + $1.label + " " + $2.label + " " + $3.label + ";\n";
 				}
-				if ($3.tipo == "char" || $3.tipo == "bool") {
-					yyerror("operação indisponível para tipo " + $3.tipo);
-				}
-				if ($1.tipo != $3.tipo) {
-					// converte tudo para float
-					$1.traducao += ($1.tipo != "float") ? "\t" + $$.label + " = (float) " + $1.label + ";\n" : "";
-					$3.traducao += ($3.tipo != "float") ? "\t" + $$.label + " = (float) " + $3.label + ";\n" : "";
-				}
-				$$.traducao = $1.traducao + $3.traducao + "\t" + $$.label +
-					" = " + $1.label + " " + $2.label + " " + $3.label + ";\n";
 			}
 			| E TK_RELACIONAL E
 			{
@@ -325,6 +349,13 @@ E 			: BLOCO
 				}
 				$$.traducao = convertImplicit($1, $3, v);
 			}
+			// int A = 2
+			| TK_TIPO TK_ID '=' E
+			{
+				declararVariavel($2.label, $1.label);
+				Variavel v = getVariavel($2.label);
+				$$.traducao = convertImplicit($2, $4, v);
+			}
 			| TK_ID TK_PREGUICA E
 			{
 				Variavel v = getVariavel($1.label);
@@ -333,13 +364,6 @@ E 			: BLOCO
 				}
 				string op = $2.label.substr(0, 1);
 				$$.traducao = $1.traducao + $3.traducao + "\t" + v.id + " = " + v.id + " " + op + " " + $3.label + ";\n";
-			}
-			// int A = 2
-			| TK_TIPO TK_ID '=' E
-			{
-				declararVariavel($2.label, $1.label);
-				Variavel v = getVariavel($2.label);
-				$$.traducao = convertImplicit($2, $4, v);
 			}
 			| TK_NUM
 			{
@@ -363,6 +387,18 @@ E 			: BLOCO
 				$$.label = genTempCode("char");
 				$$.traducao = "\t" + $$.label + " = " + s + ";\n";
 				$$.tipo = "char";
+			}
+			| TK_STRING
+			{
+				string s = $1.label;
+				// remove quotes
+				s = s.substr(1, s.length() - 2);
+
+				$$.label = genTempCode("char*");
+				$$.traducao = "\t" + $$.label + " = malloc(" + to_string(s.length() + 1) + ");\n"
+					+ "\tstrcpy(" + $$.label + ", \"" + s + "\");\n";
+				$$.tipo = "char*";
+				free_vars.insert($$.label); // marca para liberar memória
 			}
 			| TK_BOOL
 			{
@@ -396,8 +432,8 @@ E 			: BLOCO
 						break;
 					case 'c':
 						mask = "%c";
-						break;
 				}
+				mask = (v.tipo == "char*") ? "%s" : mask;
 				$$.traducao = $3.traducao + "\tprintf(\"" + v.nome + ": " + mask + "\\n\", " + v.id + ");\n";
 			}
 			;
