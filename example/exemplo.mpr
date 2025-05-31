@@ -1,4 +1,4 @@
-int main() {
+main() {
     a =  200
     x = 1
     y = 2

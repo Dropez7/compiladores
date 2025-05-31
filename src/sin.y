@@ -46,19 +46,22 @@ void genCodigo(string traducao) {
 
 %start S
 
-%left '^' '?' '~'
-%left '<' '>' TK_IGUAL_IGUAL TK_DIFERENTE TK_MAIOR_IGUAL TK_MENOR_IGUAL
-
+%right '='
+%left '?'
+%left '^'
+%left '<' '>'
+%left TK_RELACIONAL
+%right '~'
 %left '+' '-'
 %left '*' '/'
-%left '(' ')'
+%nonassoc '(' ')'
 
 
 %%
 
-S : 		TK_TIPO TK_MAIN '(' ')' BLOCO
+S : 		TK_MAIN '(' ')' BLOCO
 			{
-				genCodigo($5.traducao);
+				genCodigo($4.traducao);
 			}
 			| { entrar_escopo(); } COMANDOS
 			{
