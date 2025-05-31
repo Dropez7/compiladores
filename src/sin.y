@@ -37,7 +37,7 @@ void genCodigo(string traducao) {
 %token TK_NUM
 %token TK_MAIN TK_ID TK_REAL TK_CHAR TK_BOOL TK_PRINT
 %token TK_TIPO TK_ARITMETICO
-%token TK_IF TK_ELSE
+%token TK_IF TK_ELSE TK_LACO TK_POTOPOTO
 %token TK_RELACIONAL
 
 
@@ -120,7 +120,75 @@ COMANDO 	: E ';'
 					l1 + ":\n\t" + $5.traducao + "\n" +
 					l2 + ":\n";
 			}
-			;
+			| TK_LACO E BLOCO
+			{
+				if ($2.tipo != "bool") {
+					yyerror("condição deve ser do tipo booleano");
+				}
+				string inicio = genLabel();
+				string fim = genLabel();
+				$$.traducao = inicio + ":\n\t" + $2.traducao +  "if (!" + $2.label + ") goto " + fim + ";\n\t" +
+					$3.traducao + "\tgoto " + inicio + ";\n" +
+					fim + ":\n"; 
+			}
+			| TK_LACO '(' E ';' E ';' E ')' BLOCO
+            {
+                if ($5.tipo != "bool") {
+                    yyerror("condição deve ser do tipo booleano");
+                }
+                string inicio = genLabel();
+                string fim = genLabel();
+                $$.traducao = $3.traducao + 
+                    inicio + ":\n\t" + $5.traducao + "if (!" + $5.label + ") goto " + fim + ";\n\t" +
+                    $9.traducao + "\t" + $7.traducao + "\tgoto " + inicio + ";\n" +
+                    fim + ":\n";
+            }
+			// TODO: arrumar numero negativo
+			/* | TK_LACO TK_ID E TK_POTOPOTO E BLOCO
+            {
+                if ($3.tipo != "int" || $5.tipo != "int") {
+                    yyerror("range do for deve ser de números inteiros");
+                }
+                
+                declararVariavel($2.label, "int");
+                Variavel v = getVariavel($2.label);
+                
+                string inicio = genLabel();
+                string fim = genLabel();
+                string condicao = genTempCode("bool");
+                string incremento = genTempCode("int");
+                
+                // Determina se é crescente ou decrescente  
+                string temp_check = genTempCode("bool");
+                string loop_crescente = genLabel();
+                string loop_decrescente = genLabel();
+                string check_decrescente = "\t" + temp_check + " = " + $3.label + " > " + $5.label + ";\n";
+                
+                $$.traducao = $3.traducao + $5.traducao + check_decrescente +
+                    "\t" + v.id + " = " + $3.label + ";\n" +
+                    "\tif (" + temp_check + ") goto " + loop_decrescente + ";\n" +
+                    
+                    // Loop crescente
+                    loop_crescente + ":\n" +
+                    "\t" + condicao + " = " + v.id + " <= " + $5.label + ";\n" +
+                    "\tif (!" + condicao + ") goto " + fim + ";\n" +
+                    $6.traducao +
+                    "\t" + incremento + " = " + v.id + " + 1;\n" +
+                    "\t" + v.id + " = " + incremento + ";\n" +
+                    "\tgoto " + loop_crescente + ";\n" +
+                    
+                    // Loop decrescente  
+                    loop_decrescente + ":\n" +
+                    "\t" + condicao + " = " + v.id + " >= " + $5.label + ";\n" +
+                    "\tif (!" + condicao + ") goto " + fim + ";\n" +
+                    $6.traducao +
+                    "\t" + incremento + " = " + v.id + " - 1;\n" +
+                    "\t" + v.id + " = " + incremento + ";\n" +
+                    "\tgoto " + loop_decrescente + ";\n" +
+                    
+                    fim + ":\n";
+            } */
+            ;
 
 E 			: BLOCO
 			{

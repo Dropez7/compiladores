@@ -1,13 +1,8 @@
 main() {
-    a =  200
-    x = 1
-    y = 2
-    z = 3
-    if a == 10 {
-        print(x)
-    } else if a < 5 {
-        print(y)
-    } else {
-        print(z)
+    a = 0
+    for i in 1..10 {
+        a = a + 1
+        print(a)
     }
+    print(i)
 }

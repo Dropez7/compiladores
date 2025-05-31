@@ -26,6 +26,8 @@ BOOL T|F
 
 "if"        { nColuna += yyleng; return TK_IF; }
 "else"|"helcio"      { nColuna += yyleng; return TK_ELSE; }
+"for"       { nColuna += yyleng; return TK_LACO; }
+".."        { nColuna += yyleng; return TK_POTOPOTO; }
 
 {TIPO_VAR} { nColuna += yyleng; yylval.label = yytext; yylval.tipo = yytext; return TK_TIPO; }
 
