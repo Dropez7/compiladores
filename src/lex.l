@@ -46,8 +46,8 @@ BOOL T|F
 [=]		    { nColuna += yyleng; return *yytext; }
 
 
-{NUM}		{ nColuna += yyleng; yylval.label = yytext; return TK_NUM; }
-{REAL}		{ nColuna += yyleng; yylval.label = yytext; return TK_REAL; }
+{NUM}|(-{NUM})	{ nColuna += yyleng; yylval.label = yytext; return TK_NUM; }
+{REAL}|(-{REAL}) { nColuna += yyleng; yylval.label = yytext; return TK_REAL; }
 {CHAR}		{ nColuna += yyleng; yylval.label = yytext; return TK_CHAR; }
 {STRING}	{ nColuna += yyleng; yylval.label = yytext; return TK_STRING; }
 {COMMENT}	{ nColuna += yyleng;}
