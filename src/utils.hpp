@@ -11,6 +11,7 @@ using namespace std;
 struct atributos
 {
     string label;
+    string tamanho;
     string traducao;
     string tipo;
 };
@@ -20,6 +21,7 @@ struct Variavel
     string nome;
     string tipo;
     string id;
+    string tamanho;
 };
 bool operator<(const Variavel &a, const Variavel &b)
 {
@@ -60,7 +62,7 @@ void sair_escopo()
         yyerror("pilha de escopo vazia!");
 }
 
-void declararVariavel(const string &nome_var, const string &tipo_var)
+void declararVariavel(const string &nome_var, const string &tipo_var, const string &tamanho)
 {
     if (pilha_escopos.empty())
     {
@@ -80,6 +82,7 @@ void declararVariavel(const string &nome_var, const string &tipo_var)
     v.nome = nome_var;
     v.tipo = (tipo_var == "string") ? "char*" : tipo_var;
     v.id = genId();
+    v.tamanho = tamanho;
     variaveis.insert(v);
 
     escopo_atual[nome_var] = v;

@@ -221,10 +221,10 @@ E 			: BLOCO
 					string x3 = genTempCode("int");
 					string x4 = genTempCode("char*");
 					$$.traducao = $1.traducao + $3.traducao 
-						+ "\t" + x0 + " = sizeof(" + $1.label + ");\n" // x0 = sizeof(s1.id)
-						+ "\t" + x1 + " = sizeof(" + $3.label + ");\n" // x1 = sizeof(s2.id)
+						+ "\t" + x0 + " = " + $1.tmanho + ";\n" //x0 = len(string)
+						+ "\t" + x1 + " = " + $3.tamanho + ";\n" // x1 = len(string)
 						+ "\t" + x2 + " = " + x0 + " + " + x1 + ";\n"  // x2 = x0 + x1
-						+ "\t" + x3 + " = " + x2 + " - 1;\n"           // x3 = x2 - 1
+						+ "\t" + x3 + " = " + x2 + " + 1;\n"           // x3 = x2 + 1
 						+ "\t" + x4 + " = malloc(" + x3 + ");\n"       // x4 = malloc(x3)
 						+ "\tstrcpy(" + x4 + ", " + $1.label + ");\n"  // strcpy(x4, s1.id)
 						+ "\tstrcat(" + x4 + ", " + $3.label + ");\n"  // strcat(x4, s2.id)
@@ -336,7 +336,7 @@ E 			: BLOCO
 			// int A
 			| TK_TIPO TK_ID
 			{
-				declararVariavel($2.label, $1.label);
+				declararVariavel($2.label, $1.label,"");
 			}
 			// A = 2
 			| TK_ID '=' E
@@ -344,7 +344,7 @@ E 			: BLOCO
 				Variavel v = getVariavel($1.label, true);
 				bool found = v.id != "<error_id>";
 				if (!found) {
-					declararVariavel($1.label, $3.tipo);
+					declararVariavel($1.label, $3.tipo, $3.tamanho);
 					v = getVariavel($1.label);
 				}
 				$$.traducao = convertImplicit($1, $3, v);
@@ -352,7 +352,7 @@ E 			: BLOCO
 			// int A = 2
 			| TK_TIPO TK_ID '=' E
 			{
-				declararVariavel($2.label, $1.label);
+				declararVariavel($2.label, $1.label, $4.tamanho);
 				Variavel v = getVariavel($2.label);
 				$$.traducao = convertImplicit($2, $4, v);
 			}
@@ -393,7 +393,7 @@ E 			: BLOCO
 				string s = $1.label;
 				// remove quotes
 				s = s.substr(1, s.length() - 2);
-
+				$$.tamanho = to_string(s.length()); 
 				$$.label = genTempCode("char*");
 				$$.traducao = "\t" + $$.label + " = malloc(" + to_string(s.length() + 1) + ");\n"
 					+ "\tstrcpy(" + $$.label + ", \"" + s + "\");\n";
@@ -416,6 +416,7 @@ E 			: BLOCO
 				$$.label = genTempCode(v.tipo);
 				$$.traducao = "\t" + $$.label + " = " + v.id + ";\n";
 				$$.tipo = v.tipo;
+				$$.tamanho = v.tamanho;
 			}
 			// print - PROVISÓRIO
 			| TK_PRINT '(' TK_ID ')'

@@ -10,7 +10,7 @@ LETRA [A-Za-z_]
 DELIM {ESPACO}+
 NUM {DIGITO}+
 REAL {NUM}+("."{NUM}+)?
-CHAR ((\"({LETRA}|{NUM})\")|('({LETRA}|{NUM})'))
+CHAR ((\"({LETRA}|{DIGITO})\")|('({LETRA}|{DIGITO})'))
 STRING (\"([^"\\]*(\\.[^"\\]*)*)\")|(\'([^"\\]*(\\.[^"\\]*)*)\')
 COMMENT (\/\/\ .*\n?)|(\/\*(.|\n)*\*\/) 
 
