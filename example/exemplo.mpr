@@ -1,6 +1,6 @@
 main() {
     string a = "hello "
     string b = "world"
-    c = a + b
+    c = a + b + "!"
     print(c)
 }

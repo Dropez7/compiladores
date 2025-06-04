@@ -221,15 +221,16 @@ E 			: BLOCO
 					string x3 = genTempCode("int");
 					string x4 = genTempCode("char*");
 					$$.traducao = $1.traducao + $3.traducao 
-						+ "\t" + x0 + " = " + $1.tmanho + ";\n" //x0 = len(string)
+						+ "\t" + x0 + " = " + $1.tamanho + ";\n" //x0 = len(string)
 						+ "\t" + x1 + " = " + $3.tamanho + ";\n" // x1 = len(string)
 						+ "\t" + x2 + " = " + x0 + " + " + x1 + ";\n"  // x2 = x0 + x1
 						+ "\t" + x3 + " = " + x2 + " + 1;\n"           // x3 = x2 + 1
 						+ "\t" + x4 + " = malloc(" + x3 + ");\n"       // x4 = malloc(x3)
 						+ "\tstrcpy(" + x4 + ", " + $1.label + ");\n"  // strcpy(x4, s1.id)
 						+ "\tstrcat(" + x4 + ", " + $3.label + ");\n"  // strcat(x4, s2.id)
-						+ "\t" + $$.label + " = " + x4 + ";\n";        // s1.id = x4
+						+ "\t" + $$.label + " = " + x4 + ";\n"         // s1.id = x4
 					$$.tipo = "char*";
+					$$.tamanho = to_string(stoi($1.tamanho) + stoi($3.tamanho));
 					free_vars.insert($$.label);
 				} else {
 					$$.label = genTempCode("int");
