@@ -11,10 +11,14 @@ void genCodigo(string traducao) {
 					"#include <string.h>\n"
 					"#include <stdio.h>\n"
 					"#include <stdlib.h>\n"
+					"#include <time.h>\n"
 					"#define bool int\n"
 					"#define T 1\n"
 					"#define F 0\n\n"
-					"int main(void) {\n";
+					"int main(void) {\n"
+					"\tunsigned long long int ulli;\n"
+					"\t ulli = time(NULL);\n"
+					"\tsrand(ulli);\n";
 
 	for (const Variavel& var : variaveis) {
 		if (var.nome == var.id.substr(1)) {
@@ -42,6 +46,7 @@ void genCodigo(string traducao) {
 %token TK_MAIN TK_ID TK_PRINT
 %token TK_TIPO TK_ARITMETICO TK_UNARIO TK_PREGUICA
 %token TK_IF TK_ELSE TK_LACO TK_DO
+%token TK_WHEELDECIDE TK_OPTION
 %token TK_RELACIONAL
 
 
@@ -126,6 +131,28 @@ COMANDO 	: E ';'
 					l1 + ":\n\t" + $5.traducao + "\n" +
 					l2 + ":\n";
 			}
+			| TK_WHEELDECIDE '{' { genWDargs(); } BLOCO_DECIDE '}'
+			{
+				WDarg wd = pilha_wd.back();
+				string cond = genTempCode("bool");
+				string random = genTempCode("int");
+				
+				string meio = "\t" + cond + " = " + wd.count + " != 0;\n"
+				+ "\tif (!" + cond + ") goto " + wd.fim + ";\n"
+				+ "\t" + random + " = rand();\n"
+				+ "\t" + wd.choice + " = " + random + " % " + wd.count + ";\n";
+				for (int i = 2; i <= wd.nCLAUSES; i++) {
+					// remove todos os placeholders exceto o primeiro
+					$4.traducao = replace($4.traducao, "placeholder" + to_string(i), "");
+				}
+				// adiciona o meio logo após a checagem das cláusulas,
+				// caso todas elas sejam falsas, pula pro final
+				$4.traducao = replace($4.traducao, "placeholder1", meio);
+				$$.traducao = "\t" + wd.guards + " = malloc(" + to_string(wd.nCLAUSES * 4) + ");\n"
+				+ zerarVetor(wd.guards, wd.nCLAUSES) + "\t" + wd.count + " = 0;\n"
+				+ $4.traducao + wd.fim + ":\n\tfree(" + wd.guards + ");\n";
+				delWDargs();
+			}
 			| TK_LACO E BLOCO
 			{
 				if ($2.tipo != "bool") {
@@ -206,7 +233,28 @@ COMANDO 	: E ';'
                     fim + ":\n";
             } */
             ;
+BLOCO_DECIDE: TK_OPTION E COMANDO BLOCO_DECIDE
+			{
+				if ($2.tipo != "bool") {
+					yyerror("condição deve ser do tipo booleano");
+				}
 
+				WDarg& wd = pilha_wd.back();
+				wd.nCLAUSES++;
+				string fim1 = genLabel();
+				string cond = genTempCode("bool");
+				string fim2 = genLabel();
+				$$.traducao = $2.traducao + "\tif(!" + $2.label +") goto " + fim1 + ";\n\t" 
+				+ wd.guards + "[" + wd.count + "] = " + to_string(wd.nCLAUSES) + ";\n\t" 
+				+ wd.count + " = " + wd.count + "+ 1;\n\t" 
+				+ fim1 + ":\n" + $4.traducao + "placeholder" + to_string(wd.nCLAUSES) + "\t" 
+				+ cond + " = " + wd.guards + "[" + wd.choice + "] == " + to_string(wd.nCLAUSES) 
+				+ ";\n\tif(!" + cond + ") goto " + fim2 + ";\n" + $3.traducao
+				+ "\tgoto " + wd.fim + ";\n" + fim2 + ":";
+				
+			}
+			| // sumidouro
+			;
 E 			: BLOCO
 			{
 				$$.traducao = $1.traducao;
@@ -228,7 +276,7 @@ E 			: BLOCO
 						+ "\t" + x4 + " = malloc(" + x3 + ");\n"       // x4 = malloc(x3)
 						+ "\tstrcpy(" + x4 + ", " + $1.label + ");\n"  // strcpy(x4, s1.id)
 						+ "\tstrcat(" + x4 + ", " + $3.label + ");\n"  // strcat(x4, s2.id)
-						+ "\t" + $$.label + " = " + x4 + ";\n"         // s1.id = x4
+						+ "\t" + $$.label + " = " + x4 + ";\n";        // s1.id = x4
 					$$.tipo = "char*";
 					$$.tamanho = to_string(stoi($1.tamanho) + stoi($3.tamanho));
 					free_vars.insert($$.label);
@@ -396,7 +444,7 @@ E 			: BLOCO
 				s = s.substr(1, s.length() - 2);
 				$$.tamanho = to_string(s.length()); 
 				$$.label = genTempCode("char*");
-				$$.traducao = "\t" + $$.label + " = malloc(" + to_string(s.length() + 1) + ");\n"
+				$$.traducao = "\t" + $$.label + " = malloc(" + to_string((s.length() + 1) * sizeof(char)) + ");\n"
 					+ "\tstrcpy(" + $$.label + ", \"" + s + "\");\n";
 				$$.tipo = "char*";
 				free_vars.insert($$.label); // marca para liberar memória

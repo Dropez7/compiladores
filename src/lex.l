@@ -31,6 +31,8 @@ BOOL T|F
 "else"|"helcio"      { nColuna += yyleng; return TK_ELSE; }
 "for"       { nColuna += yyleng; return TK_LACO; }
 "do"        { nColuna += yyleng; return TK_DO; }
+"wd"|"wheeldecide" { nColuna += yyleng; return TK_WHEELDECIDE; }
+"opt"|"option"   { nColuna += yyleng; return TK_OPTION; }
 {TIPO_VAR} { nColuna += yyleng; yylval.label = yytext; yylval.tipo = yytext; return TK_TIPO; }
 
 [(){}[\];,]	{ nColuna += yyleng; return *yytext; }

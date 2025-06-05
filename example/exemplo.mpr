@@ -1,6 +1,16 @@
 main() {
-    string a = "hello "
-    string b = "world"
-    c = a + b + "!"
-    print(c)
+    wd {
+        opt (T) {
+            a = "opção 1"
+            print(a)
+        }
+        opt (T) {
+            a = "opção 2"
+            print(a)
+        }
+        opt (T) {
+            a = "opção 3"
+            print(a)
+        }
+    }
 }

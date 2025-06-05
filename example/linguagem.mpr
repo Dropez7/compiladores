@@ -1,65 +1,72 @@
-// Exemplo de arquivo Foca
+// exemplo de cláusulas guardadas em C
 
-int main() {
-    
+int guards[3] = { 0, 0, 0 };
+int count = 0;
+
+if (i == 0) guards[count++] = 1;
+if (i > j) guards[count++] = 2;
+if (j > i) guards[count++] = 3;
+
+if (count != 0) {
+    int choice = rand() % count;
+
+    if (guards[choice] == 1) {
+        sum += i;
+    }
+    else if (guards[choice] == 2) {
+        sum += j;
+    }
+    else if (guards[choice] == 3) {
+        sum += i;
+    }
 }
+printf("%d\n", sum);
 
-// Declaração e Atribuição
-bool ativo
-int idade
-int a, b, c, x;
-int l = 10;
-float altura
-float y;
-char nome
+// tradução para linguagem de 3 endereços
 
+    guards = malloc(CLAUSES);
+L0:
+    t1 = (t0 < nCLAUSES);
+    if (!t1) goto L1;
+    guards[t0] = 0;
+    t0 = t0 + 1;
+    goto L0;
+L1:
+    count = 0;
 
-idade = 30
-altura = 1.75
-a, b = b, a
+    t2 = (i == 0);
+    if (!t2) goto L2;
+    guards[count] = 1;
+    count = count + 1;
+L2:
+    t3 = (i > j);
+    if (!t3) goto L3;
+    guards[count] = 2;
+    count = count + 1;
+L3:
+    t4 = (j > i);
+    if (!t4) goto L4;
+    guards[count] = 3;
+    count = count + 1;
+L4:
+    t5 = (count != 0);
+    if (!t5) goto END;
+    t9 = rand();
+    choice = t9 % count;
 
-
-// Conversão explicita
-a = int(3.9)  
-b = float(7)  
-c = char(97)  
-
-
-// Conversão implicita
-x = 5
-y = 2.0
-result = x + y
-
-
-
-
-// Operadores Aritméticos:
-a + b      
-a - b      
-a * b      
-a / b      
-a ** b     
-a % b      
-
-
-// Operadores Relacionais:
-a == b
-a != b
-a < b
-a > b
-a <= b
-a >= b
-
-
-// Operadores Lógicos:
-
-// And
-a ^ b 
-
-// Or
-a ? b 
-
-// Not
-~a 
-
-
+    t6 = guards[choice] == 1;
+    if (!t6) goto L5;
+    sum = sum + i;
+    goto END;
+L5:
+    t7 = guards[choice] == 2;
+    if (!t7) goto L6;
+    sum = sum + j;
+    goto END;
+L6:
+    t8 = guards[choice] == 3;
+    if (!t8) goto END;
+    sum = sum + i;
+END:
+    free(guards);
+    printf("%d\n", sum);
