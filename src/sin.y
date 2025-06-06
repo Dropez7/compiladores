@@ -17,7 +17,7 @@ void genCodigo(string traducao) {
 					"#define F 0\n\n"
 					"int main(void) {\n"
 					"\tunsigned long long int ulli;\n"
-					"\t ulli = time(NULL);\n"
+					"\tulli = time(NULL);\n"
 					"\tsrand(ulli);\n";
 
 	for (const Variavel& var : variaveis) {
@@ -138,7 +138,7 @@ COMANDO 	: E ';'
 				string random = genTempCode("int");
 				
 				string meio = "\t" + cond + " = " + wd.count + " != 0;\n"
-				+ "\tif (!" + cond + ") goto " + wd.fim + ";\n"
+				+ "\tif (!" + cond + ") goto " + wd.label + ";\n"
 				+ "\t" + random + " = rand();\n"
 				+ "\t" + wd.choice + " = " + random + " % " + wd.count + ";\n";
 				for (int i = 2; i <= wd.nCLAUSES; i++) {
@@ -150,7 +150,28 @@ COMANDO 	: E ';'
 				$4.traducao = replace($4.traducao, "placeholder1", meio);
 				$$.traducao = "\t" + wd.guards + " = malloc(" + to_string(wd.nCLAUSES * 4) + ");\n"
 				+ zerarVetor(wd.guards, wd.nCLAUSES) + "\t" + wd.count + " = 0;\n"
-				+ $4.traducao + wd.fim + ":\n\tfree(" + wd.guards + ");\n";
+				+ $4.traducao + wd.label + ":\n\tfree(" + wd.guards + ");\n";
+				delWDargs();
+			}
+			| TK_DO TK_WHEELDECIDE '{' { genWDargs(); } BLOCO_DECIDE '}'
+			{
+				WDarg wd = pilha_wd.back();
+				string cond = genTempCode("bool");
+				string random = genTempCode("int");
+				string fim = genLabel();
+
+				string meio = "\t" + cond + " = " + wd.count + " != 0;\n"
+				+ "\tif (!" + cond + ") goto " + fim + ";\n"
+				+ "\t" + random + " = rand();\n"
+				+ "\t" + wd.choice + " = " + random + " % " + wd.count + ";\n";
+				for (int i = 2; i <= wd.nCLAUSES; i++) {
+					// remove todos os placeholders exceto o primeiro
+					$5.traducao = replace($5.traducao, "placeholder" + to_string(i), "");
+				}
+				$5.traducao = replace($5.traducao, "placeholder1", meio);
+				$$.traducao = "\t" + wd.guards + " = malloc(" + to_string(wd.nCLAUSES * 4) + ");\n"
+				+ zerarVetor(wd.guards, wd.nCLAUSES) + wd.label + ":\n\t" + wd.count + " = 0;\n"
+				+ $5.traducao + fim + ":\n\tfree(" + wd.guards + ");\n";
 				delWDargs();
 			}
 			| TK_LACO E BLOCO
@@ -250,7 +271,7 @@ BLOCO_DECIDE: TK_OPTION E COMANDO BLOCO_DECIDE
 				+ fim1 + ":\n" + $4.traducao + "placeholder" + to_string(wd.nCLAUSES) + "\t" 
 				+ cond + " = " + wd.guards + "[" + wd.choice + "] == " + to_string(wd.nCLAUSES) 
 				+ ";\n\tif(!" + cond + ") goto " + fim2 + ";\n" + $3.traducao
-				+ "\tgoto " + wd.fim + ";\n" + fim2 + ":";
+				+ "\tgoto " + wd.label + ";\n" + fim2 + ":\n";
 				
 			}
 			| // sumidouro
@@ -377,9 +398,9 @@ E 			: BLOCO
                     			yyerror("Operação entre tipos inválidos (" + v1.tipo + ", " + v2.tipo + ")");
                 		}
                 		string temp_var = genTempCode(v1.tipo);
-                		string l1 = "\t" + temp_var + " = " + v1.nome + ";\n";
-                		string l2 = "\t" + v1.nome + " = " + v2.nome + ";\n";
-                		string l3 = "\t" + v2.nome + " = " + temp_var + ";\n";
+                		string l1 = "\t" + temp_var + " = " + v1.id + ";\n";
+                		string l2 = "\t" + v1.id + " = " + v2.id + ";\n";
+                		string l3 = "\t" + v2.id + " = " + temp_var + ";\n";
                 		$$.traducao = l1 + l2 + l3;
 			}
 			// int A

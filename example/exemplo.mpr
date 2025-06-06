@@ -1,16 +1,21 @@
-main() {
-    wd {
-        opt (T) {
-            a = "opção 1"
-            print(a)
-        }
-        opt (T) {
-            a = "opção 2"
-            print(a)
-        }
-        opt (T) {
-            a = "opção 3"
-            print(a)
-        }
+q1 = 20
+q2 = 15
+q3 = 18
+q4 = 5
+
+do wd {
+    opt q1 > q2 {
+        q1, q2 = q2, q1
+    }
+    opt q2 > q3 {
+        q2, q3 = q3, q2
+    }
+    opt q3 > q4 {
+        q3, q4 = q4, q3
     }
 }
+
+print(q1)
+print(q2)
+print(q3)
+print(q4)

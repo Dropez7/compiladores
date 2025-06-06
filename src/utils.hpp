@@ -33,7 +33,7 @@ struct WDarg
     string guards;
     string count;
     string choice;
-    string fim;
+    string label;
     int nCLAUSES;
 };
 
@@ -157,7 +157,7 @@ void genWDargs() {
     wd.guards = genTempCode("int*");
     wd.count = genTempCode("int");
     wd.choice = genTempCode("int");
-    wd.fim = genLabel();
+    wd.label = genLabel();
     wd.nCLAUSES = 0;
     pilha_wd.push_back(wd);
 }
