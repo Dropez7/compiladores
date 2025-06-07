@@ -509,12 +509,55 @@ E 			: BLOCO
 					yyerror("continue fora de laço");
 				}
 			}
-			// print - PROVISÓRIO
-			| TK_PRINT '(' TK_ID ')'
+			| TK_PRINT '(' ARGS ')'
 			{
-				string mask;
-				Variavel v = getVariavel($3.label);
-				switch (v.tipo[0]) {
+				$$.traducao = $3.traducao + "\tprintf(\"\\n\");\n";
+			}
+			;
+			
+ARGS:       E ',' ARGS
+			{
+				if ($1.tipo == "char*") {
+					$$.traducao = $1.traducao + "\tprintf(\"%s\", " + $1.label 
+					+ ");\n\tprintf(\" \");\n";
+				} else if ($1.tipo == "bool") {
+					string tmp = genTempCode("bool");
+					string l1 = genLabel();
+					string l2 = genLabel();
+					$$.traducao = $1.traducao + "\t" + tmp + " = " + $1.label + " == 1;\n"
+					+ "\tif (!" + tmp + ") goto " + l1 + ";\n\tprintf(\"T \");\n\tgoto " + l2 
+					+ ";\n" + l1 + ":\n\tprintf(\"F \");\n" + l2 + ":\n";
+				} else {
+					string mask;
+					switch ($1.tipo[0]) {
+					case 'i':
+						mask = "%d";
+						break;
+					case 'f':
+						mask = "%f";
+						break;
+					case 'c':
+						mask = "%c";
+					}
+					$$.traducao = $1.traducao + "\tprintf(\"" + mask + "\", " + $1.label 
+					+ ");\n\tprintf(\" \");\n"; 
+				}
+				$$.traducao = $$.traducao + $3.traducao;
+			}
+			| E
+			{
+				if ($1.tipo == "char*") {
+					$$.traducao = $1.traducao + "\tprintf(\"%s\"", $1.label + ");\n";
+				} else if ($1.tipo == "bool") {
+					string tmp = genTempCode("bool");
+					string l1 = genLabel();
+					string l2 = genLabel();
+					$$.traducao = $1.traducao + "\t" + tmp + " = " + $1.label + " == 1;\n"
+					+ "\tif (!" + tmp + ") goto " + l1 + ";\n\tprintf(\"T\");\n\tgoto " + l2 
+					+ ";\n" + l1 + ":\n\tprintf(\"F\");\n" + l2 + ":\n";
+				} else {
+					string mask;
+					switch ($1.tipo[0]) {
 					case 'i':
 					case 'b':
 						mask = "%d";
@@ -524,9 +567,9 @@ E 			: BLOCO
 						break;
 					case 'c':
 						mask = "%c";
+					}
+					$$.traducao = $1.traducao + "\tprintf(\"" + mask + "\", " + $1.label + ");\n"; 
 				}
-				mask = (v.tipo == "char*") ? "%s" : mask;
-				$$.traducao = $3.traducao + "\tprintf(\"" + v.nome + ": " + mask + "\\n\", " + v.id + ");\n";
 			}
 			;
 
