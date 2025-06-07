@@ -1,3 +1,6 @@
 main() {
-    print("1 + 1 =", 1 + 1, "->", 1 + 1 == 2)
+	// int a = input("escreva um int") (bom)
+	// b = "escreva um float"
+	// c = input(b) (ruim, c nao foi declarado)
+	print("1 + 1 =", 1 + 1, "->", 1 + 1 == 2)
 }
