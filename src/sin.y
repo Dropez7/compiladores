@@ -15,11 +15,12 @@ void genCodigo(string traducao) {
 					"#define bool int\n"
 					"#define T 1\n"
 					"#define F 0\n\n"
-					"int main(void) {\n"
-					"\tunsigned long long int ulli;\n"
-					"\tulli = time(NULL);\n"
-					"\tsrand(ulli);\n";
-
+					"int main(void) {\n";
+	if (wdUsed) {
+		codigo += "\tunsigned long long int ulli;\n"
+				  "\tulli = time(NULL);\n"
+				  "\tsrand(ulli);\n";
+	}
 	for (const Variavel& var : variaveis) {
 		if (var.nome == var.id.substr(1)) {
 			codigo += "\t" + var.tipo + " " + var.id + ";\n";
@@ -44,27 +45,22 @@ void genCodigo(string traducao) {
 
 %token TK_NUM TK_REAL TK_CHAR TK_BOOL TK_STRING
 %token TK_MAIN TK_ID TK_PRINT
-%token TK_TIPO TK_ARITMETICO TK_UNARIO TK_PREGUICA
+%token TK_TIPO TK_UNARIO TK_ABREVIADO
 %token TK_IF TK_ELSE TK_LACO TK_DO
 %token TK_WHEELDECIDE TK_OPTION
 %token TK_RELACIONAL
-
-
-
-
 
 %start S
 
 %right '='
 %right TK_UNARIO
-%right TK_PREGUICA
+%right TK_ABREVIADO
 %left '?'
 %left '^'
-%left '<' '>'
 %left TK_RELACIONAL
-%right '~'
 %left '+' '-'
 %left '*' '/'
+%right '~'
 %nonassoc '(' ')'
 
 
@@ -181,7 +177,7 @@ COMANDO 	: E ';'
 				}
 				string inicio = genLabel();
 				string fim = genLabel();
-				$$.traducao = inicio + ":\n" + $2.traducao +  "if (!" + $2.label + ") goto " + fim + ";\n\t" +
+				$$.traducao = inicio + ":\n" + $2.traducao +  "\tif (!" + $2.label + ") goto " + fim + ";\n" +
 					$3.traducao + "\tgoto " + inicio + ";\n" +
 					fim + ":\n"; 
 			}
@@ -192,20 +188,24 @@ COMANDO 	: E ';'
 				}
 				string inicio = genLabel();
 				string fim = genLabel();
-				$$.traducao = inicio + ":\n" + $2.traducao + $4.traducao + "if (!" + $4.label + ") goto " + fim + ";\n\t" +
+				$$.traducao = inicio + ":\n" + $2.traducao + $4.traducao + "\tif (!" + $4.label + ") goto " + fim + ";\n" +
 					$3.traducao + "\tgoto " + inicio + ";\n" +
 					fim + ":\n";
 			}
 			| TK_LACO '(' E ';' E ';' E ')' BLOCO
             {
-                if ($5.tipo != "bool") {
+				if ($3.traducao.find("implicitamente") == string::npos) {
+			        yyerror("Variável '" + $3.label + "' já declarada neste escopo.");
+				}
+				
+				if ($5.tipo != "bool") {
                     yyerror("condição deve ser do tipo booleano");
                 }
                 string inicio = genLabel();
                 string fim = genLabel();
                 $$.traducao = $3.traducao + 
-                    inicio + ":\n\t" + $5.traducao + "if (!" + $5.label + ") goto " + fim + ";\n\t" +
-                    $9.traducao + "\t" + $7.traducao + "\tgoto " + inicio + ";\n" +
+                    inicio + ":\n" + $5.traducao + "\tif (!" + $5.label + ") goto " + fim + ";\n" +
+                    $9.traducao + $7.traducao + "\tgoto " + inicio + ";\n" +
                     fim + ":\n";
             }
 			// TODO: arrumar numero negativo
@@ -280,9 +280,9 @@ E 			: BLOCO
 			{
 				$$.traducao = $1.traducao;
 			}
-			| E TK_ARITMETICO E
+			| E '+' E
 			{
-				if ($2.label == "+" && $1.tipo == "char*" && $3.tipo == "char*") {
+				if ($1.tipo == "char*" && $3.tipo == "char*") {
 					$$.label = genTempCode("char*");
 					string x0 = genTempCode("int");
 					string x1 = genTempCode("int");
@@ -302,22 +302,10 @@ E 			: BLOCO
 					$$.tamanho = to_string(stoi($1.tamanho) + stoi($3.tamanho));
 					free_vars.insert($$.label);
 				} else {
-					$$.label = genTempCode("int");
-					if ($1.tipo == "char" || $1.tipo == "bool") {
-						yyerror("operação indisponível para tipo " + $1.tipo);
-					}
-					if ($3.tipo == "char" || $3.tipo == "bool") {
-						yyerror("operação indisponível para tipo " + $3.tipo);
-					}
-					if ($1.tipo != $3.tipo) {
-						// converte tudo para float
-						$1.traducao += ($1.tipo != "float") ? "\t" + $$.label + " = (float) " + $1.label + ";\n" : "";
-						$3.traducao += ($3.tipo != "float") ? "\t" + $$.label + " = (float) " + $3.label + ";\n" : "";
-					}
-					$$.traducao = $1.traducao + $3.traducao + "\t" + $$.label +
-						" = " + $1.label + " " + $2.label + " " + $3.label + ";\n";
+					makeOp($$, $1, $2, $3);	
 				}
-			}
+			} 
+			| E '-' E { makeOp($$, $1, $2, $3);} | E '*' E {makeOp($$, $1, $2, $3);} | E '/' E {makeOp($$, $1, $2, $3);}
 			| E TK_RELACIONAL E
 			{
 				$$.label = genTempCode("bool");
@@ -340,7 +328,7 @@ E 			: BLOCO
 			{
 				string op = $2.label.substr(0, 1);
 				Variavel v = getVariavel($1.label);
-				$$.traducao = $1.traducao + "\t" + v.id + " = " + v.id + $2.label + "1;\n";
+				$$.traducao = $1.traducao + "\t" + v.id + " = " + v.id + " " + op + " 1;\n";
 			}
 			| '(' E ')'
 			{
@@ -413,11 +401,13 @@ E 			: BLOCO
 			{
 				Variavel v = getVariavel($1.label, true);
 				bool found = v.id != "<error_id>";
+				string msg = (found) ? "\n" : " // variável " + $1.label + " declarada implicitamente\n";
 				if (!found) {
 					declararVariavel($1.label, $3.tipo, $3.tamanho);
 					v = getVariavel($1.label);
 				}
-				$$.traducao = convertImplicit($1, $3, v);
+				string traducao = convertImplicit($1, $3, v);
+				$$.traducao = traducao.substr(0, traducao.length() - 1) + msg;
 			}
 			// int A = 2
 			| TK_TIPO TK_ID '=' E
@@ -426,7 +416,7 @@ E 			: BLOCO
 				Variavel v = getVariavel($2.label);
 				$$.traducao = convertImplicit($2, $4, v);
 			}
-			| TK_ID TK_PREGUICA E
+			| TK_ID TK_ABREVIADO E
 			{
 				Variavel v = getVariavel($1.label);
 				if (v.tipo != $3.tipo) {

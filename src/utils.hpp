@@ -43,6 +43,8 @@ int var_temp_qnt;
 int label_qnt;
 int nLinha = 1;
 int nColuna = 1;
+bool wdUsed = false;
+bool inFor = false;
 void yyerror(string);
 set<Variavel> variaveis;
 set<string> free_vars;
@@ -84,7 +86,7 @@ void declararVariavel(const string& nome_var, const string& tipo_var, const stri
 
     if (escopo_atual.count(nome_var))
     {
-        yyerror("Variável '" + nome_var + "' já declarada neste escopo (linha " + to_string(nLinha) + ").");
+        yyerror("Variável '" + nome_var + "' já declarada neste escopo.");
         return;
     }
 
@@ -153,6 +155,7 @@ string genTempCode(string tipo)
 }
 
 void genWDargs() {
+    wdUsed = (wdUsed) ? wdUsed : true;
     WDarg wd;
     wd.guards = genTempCode("int*");
     wd.count = genTempCode("int");
@@ -169,6 +172,24 @@ void delWDargs() {
     else {
         yyerror("Pilha de WDargs vazia.");
     }
+}
+
+void makeOp(atributos& $$, atributos $1, atributos $2, atributos $3)
+{
+    $$.label = genTempCode("int");
+    if ($1.tipo == "char" || $1.tipo == "bool") {
+        yyerror("operação indisponível para tipo " + $1.tipo);
+    }
+    if ($3.tipo == "char" || $3.tipo == "bool") {
+        yyerror("operação indisponível para tipo " + $3.tipo);
+    }
+    if ($1.tipo != $3.tipo) {
+        // converte tudo para float
+        $1.traducao += ($1.tipo != "float") ? "\t" + $$.label + " = (float) " + $1.label + ";\n" : "";
+        $3.traducao += ($3.tipo != "float") ? "\t" + $$.label + " = (float) " + $3.label + ";\n" : "";
+    }
+    $$.traducao = $1.traducao + $3.traducao + "\t" + $$.label +
+        " = " + $1.label + " " + $2.label + " " + $3.label + ";\n";
 }
 
 string convertImplicit(atributos a, atributos b, Variavel v)

@@ -37,12 +37,12 @@ BOOL T|F
 
 [(){}[\];,]	{ nColuna += yyleng; return *yytext; }
 
-[+\-*/]		{ nColuna += yyleng; yylval.label = yytext; return TK_ARITMETICO; }
+[+\-*/]		{ nColuna += yyleng; yylval.label = yytext; return *yytext; }
 "++"|"--"    { nColuna += yyleng; yylval.label = yytext; return TK_UNARIO; }
-"+="|"-="|"*="|"/="	{ nColuna += yyleng; yylval.label = yytext; return TK_PREGUICA; }
+"+="|"-="|"*="|"/="	{ nColuna += yyleng; yylval.label = yytext; return TK_ABREVIADO; }
 
 
-"!="|"<="|">="|"=="|"<"|">"		{ nColuna += yyleng; yylval.label = yytext; return TK_RELACIONAL; }
+!=|<=|>=|==|<|>		{ nColuna += yyleng; yylval.label = yytext; return TK_RELACIONAL; }
 [\^?~]	{ nColuna += yyleng; return *yytext; }
 
 [=]		    { nColuna += yyleng; return *yytext; }
