@@ -29,8 +29,10 @@ BOOL T|F
 
 "if"        { nColuna += yyleng; return TK_IF; }
 "else"|"helcio"      { nColuna += yyleng; return TK_ELSE; }
-"for"       { nColuna += yyleng; return TK_LACO; }
-"do"        { nColuna += yyleng; return TK_DO; }
+"for"       { nColuna += yyleng; canBreak = true; canContinue = true; return TK_LACO; }
+"do"        { nColuna += yyleng; canBreak = true; canContinue = true; return TK_DO; }
+"break"     { nColuna += yyleng; return TK_BREAK; }
+"continue"  { nColuna += yyleng; return TK_CONTINUE; }
 "wd"|"wheeldecide" { nColuna += yyleng; return TK_WHEELDECIDE; }
 "opt"|"option"   { nColuna += yyleng; return TK_OPTION; }
 {TIPO_VAR} { nColuna += yyleng; yylval.label = yytext; yylval.tipo = yytext; return TK_TIPO; }

@@ -47,6 +47,7 @@ void genCodigo(string traducao) {
 %token TK_MAIN TK_ID TK_PRINT
 %token TK_TIPO TK_UNARIO TK_ABREVIADO
 %token TK_IF TK_ELSE TK_LACO TK_DO
+%token TK_BREAK TK_CONTINUE
 %token TK_WHEELDECIDE TK_OPTION
 %token TK_RELACIONAL
 
@@ -151,6 +152,7 @@ COMANDO 	: E ';'
 			}
 			| TK_DO TK_WHEELDECIDE '{' { genWDargs(); } BLOCO_DECIDE '}'
 			{
+				canBreak = false; // não tem sentido esse laço possuir continue
 				WDarg wd = pilha_wd.back();
 				string cond = genTempCode("bool");
 				string random = genTempCode("int");
@@ -165,6 +167,7 @@ COMANDO 	: E ';'
 					$5.traducao = replace($5.traducao, "placeholder" + to_string(i), "");
 				}
 				$5.traducao = replace($5.traducao, "placeholder1", meio);
+				$5.traducao = replace($5.traducao, "BREAK", fim); // adiciona os breaks se existirem
 				$$.traducao = "\t" + wd.guards + " = malloc(" + to_string(wd.nCLAUSES * 4) + ");\n"
 				+ zerarVetor(wd.guards, wd.nCLAUSES) + wd.label + ":\n\t" + wd.count + " = 0;\n"
 				+ $5.traducao + fim + ":\n\tfree(" + wd.guards + ");\n";
@@ -172,28 +175,38 @@ COMANDO 	: E ';'
 			}
 			| TK_LACO E BLOCO
 			{
+				canBreak = false;
+				canContinue = false;
 				if ($2.tipo != "bool") {
 					yyerror("condição deve ser do tipo booleano");
 				}
 				string inicio = genLabel();
 				string fim = genLabel();
+				$3.traducao = replace($3.traducao, "CONTINUE", inicio);
+				$3.traducao = replace($3.traducao, "BREAK", fim);
 				$$.traducao = inicio + ":\n" + $2.traducao +  "\tif (!" + $2.label + ") goto " + fim + ";\n" +
 					$3.traducao + "\tgoto " + inicio + ";\n" +
 					fim + ":\n"; 
 			}
 			| TK_DO BLOCO TK_LACO E
 			{
+				canBreak = false;
+				canContinue = false;
 				if ($4.tipo != "bool") {
 					yyerror("condição deve ser do tipo booleano");
 				}
 				string inicio = genLabel();
 				string fim = genLabel();
+				$2.traducao = replace($2.traducao, "CONTINUE", inicio);
+				$2.traducao = replace($2.traducao, "BREAK", fim);
 				$$.traducao = inicio + ":\n" + $2.traducao + $4.traducao + "\tif (!" + $4.label + ") goto " + fim + ";\n" +
 					$3.traducao + "\tgoto " + inicio + ";\n" +
 					fim + ":\n";
 			}
 			| TK_LACO '(' E ';' E ';' E ')' BLOCO
             {
+				canBreak = false;
+				canContinue  = false;
 				if ($3.traducao.find("implicitamente") == string::npos) {
 			        yyerror("Variável '" + $3.label + "' já declarada neste escopo.");
 				}
@@ -203,6 +216,8 @@ COMANDO 	: E ';'
                 }
                 string inicio = genLabel();
                 string fim = genLabel();
+				$9.traducao = replace($9.traducao, "CONTINUE", inicio);
+				$9.traducao = replace($9.traducao, "BREAK", fim);
                 $$.traducao = $3.traducao + 
                     inicio + ":\n" + $5.traducao + "\tif (!" + $5.label + ") goto " + fim + ";\n" +
                     $9.traducao + $7.traducao + "\tgoto " + inicio + ";\n" +
@@ -309,10 +324,10 @@ E 			: BLOCO
 			| E TK_RELACIONAL E
 			{
 				$$.label = genTempCode("bool");
-				if ($1.tipo == "char" || $1.tipo == "bool") {
+				if ($1.tipo == "char" || $1.tipo == "char*" || $1.tipo == "bool") {
 					yyerror("operação indisponível para tipo " + $1.tipo);
 				}
-				if ($3.tipo == "char" || $3.tipo == "bool") {
+				if ($3.tipo == "char" || $3.tipo == "char*" || $3.tipo == "bool") {
 					yyerror("operação indisponível para tipo " + $3.tipo);
 				}
 				if ($1.tipo != $3.tipo) {
@@ -477,6 +492,22 @@ E 			: BLOCO
 				$$.traducao = "\t" + $$.label + " = " + v.id + ";\n";
 				$$.tipo = v.tipo;
 				$$.tamanho = v.tamanho;
+			}
+			| TK_BREAK
+			{
+				if (canBreak) {
+					$$.traducao = "\tgoto BREAK;\n";
+				} else {
+					yyerror("break fora de laço");
+				}
+			}
+			| TK_CONTINUE
+			{
+				if (canContinue) {
+					$$.traducao = "\tgoto CONTINUE;\n";
+				} else {
+					yyerror("continue fora de laço");
+				}
 			}
 			// print - PROVISÓRIO
 			| TK_PRINT '(' TK_ID ')'
