@@ -260,3 +260,18 @@ string replace(const string& original, const string& alvo, const string& novoVal
     }
     return resultado;
 }
+
+//função qye calcula o tamanho da string com tres endereços 
+string len(string buffer, string tamanho, string cond, string label){
+    string c = genTempCode("char");
+    string output = "\t" + tamanho + " = 0;\n"
+        + "\t" + label + ":\n" + c + " = " + buffer + "[" + tamanho + "];\n"
+        + "\t" + cond + " = (" + c + " != '\\0');\n"
+        + "\tif (" + cond + ") goto " + label + "_end;\n"
+        + "\t" + tamanho + " = " + tamanho + " + 1;\n"
+        + "\tgoto " + label + ";\n"
+        + label + "_end:\n\t" + tamanho + " = " + tamanho + " + 1;\n";
+    return output;
+}
+
+

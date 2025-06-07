@@ -44,12 +44,13 @@ void genCodigo(string traducao) {
 
 
 %token TK_NUM TK_REAL TK_CHAR TK_BOOL TK_STRING
-%token TK_MAIN TK_ID TK_PRINT
+%token TK_MAIN TK_ID TK_PRINT TK_INPUT
 %token TK_TIPO TK_UNARIO TK_ABREVIADO
 %token TK_IF TK_ELSE TK_LACO TK_DO
 %token TK_BREAK TK_CONTINUE
 %token TK_WHEELDECIDE TK_OPTION
 %token TK_RELACIONAL
+
 
 %start S
 
@@ -509,12 +510,64 @@ E 			: BLOCO
 					yyerror("continue fora de laço");
 				}
 			}
+			| TK_TIPO TK_ID '=' TK_INPUT '(' OPTIONAL ')'
+			{
+                if ($1.tipo == "string") {
+                    // Para strings, precisamos alocar dinamicamente
+                    declararVariavel($2.label, $1.tipo, "256");
+                    Variavel v = getVariavel($2.label);
+                    
+                    string buffer = genTempCode("char*");
+                    string tamanho = genTempCode("int");
+					string cond = genTempCode("bool");
+					string l1 = genLabel();
+                    
+                    $$.traducao = $6.traducao +
+                        "\t" + buffer + " = malloc(256);\n" +  // Buffer temporário
+                        "\tfgets(" + buffer + ", 256, stdin);\n" +             // Lê até 255 chars + \0
+                        len(buffer, tamanho, cond, l1) + 
+                        "\t" + v.id + " = malloc(" + tamanho + ");\n" +  // Aloca tamanho exato
+                        "\tstrcpy(" + v.id + ", " + buffer + ");\n" +          // Copia string
+                        "\tfree(" + buffer + ");\n";                          // Libera buffer temporário
+                    
+                    // Marca a variável para ser liberada no final
+                    free_vars.insert(v.id);
+                } else {				
+				string mask;
+				switch ($1.tipo[0]) {
+				case 'i':
+					mask = "%d";
+					break;
+				case 'f':
+					mask = "%f";
+					break;
+				case 'c':
+					mask = "%c";
+				}
+
+				declararVariavel($2.label, $1.label, "0");
+				Variavel v = getVariavel($2.label);
+				$$.traducao = $2.traducao + $6.traducao + "\tscanf(\"" + mask + "\", &" + v.id + ");\n";
+				}
+
+			}
 			| TK_PRINT '(' ARGS ')'
 			{
 				$$.traducao = $3.traducao + "\tprintf(\"\\n\");\n";
 			}
 			;
-			
+OPTIONAL:   E
+			{
+				if ($1.tipo != "char*") {
+					yyerror("mensagem deve ser do tipo string");
+				}
+				$$.traducao = $1.traducao + "\tprintf(\"%s\", " + $1.label + ");\n";
+			}
+			| /* vazio */
+			{	
+				$$.traducao = "";
+			}
+			; 
 ARGS:       E ',' ARGS
 			{
 				if ($1.tipo == "char*") {
@@ -547,7 +600,7 @@ ARGS:       E ',' ARGS
 			| E
 			{
 				if ($1.tipo == "char*") {
-					$$.traducao = $1.traducao + "\tprintf(\"%s\"", $1.label + ");\n";
+					$$.traducao = $1.traducao + "\tprintf(\"%s\", " + $1.label + ");\n";
 				} else if ($1.tipo == "bool") {
 					string tmp = genTempCode("bool");
 					string l1 = genLabel();

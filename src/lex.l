@@ -17,6 +17,7 @@ COMMENT (\/\/\ .*\n?)|(\/\*(.|\n)*\*\/)
 ID {LETRA}({LETRA}|{NUM})*
 TIPO_VAR int|float|char|bool|string
 
+
 BOOL T|F
 
 %%
@@ -58,6 +59,7 @@ BOOL T|F
 {BOOL}      { nColuna += yyleng; yylval.label = yytext; return TK_BOOL; }
 
 "print"     { nColuna += yyleng; return TK_PRINT; }
+"input"     { nColuna += yyleng; return TK_INPUT; }
 
 {ID}		{ nColuna += yyleng; yylval.label = yytext; return TK_ID; }
 
