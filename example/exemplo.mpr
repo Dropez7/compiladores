@@ -1,4 +1,14 @@
 main() {
-	string a = input("Escreva o seu nome ") 
-print(a)
+    a = 5
+    switch a {
+        opt 5:
+            print("valor é 5")
+		opt 15:
+			print("valor é 10")
+			break
+		opt 18:
+			print("valor é 18")
+		dafoe:
+			print("william dafoe")
+    }
 }

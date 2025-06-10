@@ -36,9 +36,12 @@ BOOL T|F
 "continue"  { nColuna += yyleng; return TK_CONTINUE; }
 "wd"|"wheeldecide" { nColuna += yyleng; return TK_WHEELDECIDE; }
 "opt"|"option"   { nColuna += yyleng; return TK_OPTION; }
+"default"|"dafoe" { nColuna += yyleng; return TK_DEFAULT; }
+"switch"   { nColuna += yyleng; canBreak = true; return TK_SWITCH; }
+".."       { nColuna += yyleng; return TK_POTOPOTO; }
 {TIPO_VAR} { nColuna += yyleng; yylval.label = yytext; yylval.tipo = yytext; return TK_TIPO; }
 
-[(){}[\];,]	{ nColuna += yyleng; return *yytext; }
+[(){}[\]:;,]	{ nColuna += yyleng; return *yytext; }
 
 [+\-*/]		{ nColuna += yyleng; yylval.label = yytext; return *yytext; }
 "++"|"--"    { nColuna += yyleng; yylval.label = yytext; return TK_UNARIO; }

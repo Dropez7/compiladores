@@ -47,6 +47,7 @@ void genCodigo(string traducao) {
 %token TK_MAIN TK_ID TK_PRINT TK_INPUT
 %token TK_TIPO TK_UNARIO TK_ABREVIADO
 %token TK_IF TK_ELSE TK_LACO TK_DO
+%token TK_SWITCH TK_DEFAULT TK_POTOPOTO
 %token TK_BREAK TK_CONTINUE
 %token TK_WHEELDECIDE TK_OPTION
 %token TK_RELACIONAL
@@ -224,51 +225,58 @@ COMANDO 	: E ';'
                     $9.traducao + $7.traducao + "\tgoto " + inicio + ";\n" +
                     fim + ":\n";
             }
-			// TODO: arrumar numero negativo
-			/* | TK_LACO TK_ID E TK_POTOPOTO E BLOCO
+			| TK_SWITCH E '{' BLOCO_SWITCH '}'
+			{
+				if ($4.tipo != "" && $4.tipo != $2.tipo) {
+					yyerror("tipo da expressão do switch deve ser igual ao tipo dos cases");
+				}
+				auto conds = split($4.traducao, "CONDICOES");
+				// reorganiza o vetor de tras pra frente
+				reverse(conds.begin(), conds.end());
+				// coloca o ultimo elemento no inicio
+				conds.insert(conds.begin(), conds.back());
+				conds.pop_back();
+				// cria uma string com as condições
+				string condicoes = "";
+				for (const string& cond : conds) {
+					if (cond != "") {
+						condicoes += cond;
+					}
+				}				
+
+				$4.traducao = condicoes;
+				string fim = genLabel();
+				$4.traducao = replace($4.traducao, "TEMP", $2.label);
+				$4.traducao = replace($4.traducao, "SWITCH_END", fim);
+				$4.traducao = replace($4.traducao, "BREAK", fim);
+				$$.traducao = $2.traducao + $4.traducao + fim + ":\n";
+			}
+            ;
+BLOCO_SWITCH: TK_OPTION E ':' COMANDOS BLOCO_SWITCH
             {
-                if ($3.tipo != "int" || $5.tipo != "int") {
-                    yyerror("range do for deve ser de números inteiros");
+                $$.tipo = $2.tipo;
+                if ($5.traducao != "" && $2.tipo != $5.tipo && $5.tipo != "dafoe") {
+                    yyerror("tipo do case deve ser igual ao tipo do switch");
                 }
-                
-                declararVariavel($2.label, "int");
-                Variavel v = getVariavel($2.label);
-                
-                string inicio = genLabel();
-                string fim = genLabel();
-                string condicao = genTempCode("bool");
-                string incremento = genTempCode("int");
-                
-                // Determina se é crescente ou decrescente  
-                string temp_check = genTempCode("bool");
-                string loop_crescente = genLabel();
-                string loop_decrescente = genLabel();
-                string check_decrescente = "\t" + temp_check + " = " + $3.label + " > " + $5.label + ";\n";
-                
-                $$.traducao = $3.traducao + $5.traducao + check_decrescente +
-                    "\t" + v.id + " = " + $3.label + ";\n" +
-                    "\tif (" + temp_check + ") goto " + loop_decrescente + ";\n" +
-                    
-                    // Loop crescente
-                    loop_crescente + ":\n" +
-                    "\t" + condicao + " = " + v.id + " <= " + $5.label + ";\n" +
-                    "\tif (!" + condicao + ") goto " + fim + ";\n" +
-                    $6.traducao +
-                    "\t" + incremento + " = " + v.id + " + 1;\n" +
-                    "\t" + v.id + " = " + incremento + ";\n" +
-                    "\tgoto " + loop_crescente + ";\n" +
-                    
-                    // Loop decrescente  
-                    loop_decrescente + ":\n" +
-                    "\t" + condicao + " = " + v.id + " >= " + $5.label + ";\n" +
-                    "\tif (!" + condicao + ") goto " + fim + ";\n" +
-                    $6.traducao +
-                    "\t" + incremento + " = " + v.id + " - 1;\n" +
-                    "\t" + v.id + " = " + incremento + ";\n" +
-                    "\tgoto " + loop_decrescente + ";\n" +
-                    
-                    fim + ":\n";
-            } */
+                string label = genLabel();
+                string cond = genTempCode("bool");
+				if ($5.tipo == "dafoe") {
+					$$.traducao = $2.traducao + "\t" + cond + " = " + $2.label + " == TEMP;\n\tif (" + cond + ") goto " 
+					+ label + ";\n" + $5.traducao + "\nCONDICOES\n" + label + ":\n"+ $4.traducao;
+				} else {
+					$$.traducao = $2.traducao + "\t" + cond + " = " + $2.label + " == TEMP;\n\tif (" + cond + ") goto " 
+					+ label + ";\n" + $5.traducao + "\nCONDICOES\n" + label + ":\n"+ $4.traducao;
+				}
+            }
+            | TK_DEFAULT ':' COMANDOS
+            {
+				$$.tipo = "dafoe";
+                $$.traducao = $3.traducao + "\tgoto SWITCH_END;\n";
+            }
+            | // sumidouro
+            {
+                $$.traducao = "";
+            }
             ;
 BLOCO_DECIDE: TK_OPTION E COMANDO BLOCO_DECIDE
 			{
