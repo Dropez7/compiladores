@@ -23,7 +23,7 @@ struct Variavel
     string id;
     string tamanho;
 };
-bool operator<(const Variavel &a, const Variavel &b)
+bool operator<(const Variavel& a, const Variavel& b)
 {
     return a.id < b.id;
 }
@@ -75,7 +75,7 @@ void sair_escopo()
         yyerror("pilha de escopo vazia!");
 }
 
-void declararVariavel(const string &nome_var, const string &tipo_var, const string &tamanho)
+void declararVariavel(const string& nome_var, const string& tipo_var, const string& tamanho)
 {
     if (pilha_escopos.empty())
     {
@@ -83,7 +83,7 @@ void declararVariavel(const string &nome_var, const string &tipo_var, const stri
         return;
     }
 
-    map<string, Variavel> &escopo_atual = pilha_escopos.back();
+    map<string, Variavel>& escopo_atual = pilha_escopos.back();
 
     if (escopo_atual.count(nome_var))
     {
@@ -102,7 +102,7 @@ void declararVariavel(const string &nome_var, const string &tipo_var, const stri
 }
 
 // busca variavel no escopo
-Variavel getVariavel(const string &nome_var, bool turnOffError = false)
+Variavel getVariavel(const string& nome_var, bool turnOffError = false)
 {
     if (pilha_escopos.empty())
     {
@@ -115,7 +115,7 @@ Variavel getVariavel(const string &nome_var, bool turnOffError = false)
     }
     for (auto it_escopo = pilha_escopos.rbegin(); it_escopo != pilha_escopos.rend(); ++it_escopo)
     {
-        const map<string, Variavel> &escopo_para_busca = *it_escopo;
+        const map<string, Variavel>& escopo_para_busca = *it_escopo;
         if (escopo_para_busca.count(nome_var))
         {
             return escopo_para_busca.at(nome_var);
@@ -132,6 +132,24 @@ Variavel getVariavel(const string &nome_var, bool turnOffError = false)
     return v_erro;
 }
 
+void updateTamanho(const string& nome_var, const string& novo_tamanho)
+{
+    if (pilha_escopos.empty())
+    {
+        yyerror("Erro Critico: Nao ha escopo ativo para atualizar o tamanho da variavel.");
+        return;
+    }
+    map<string, Variavel>& escopo_atual = pilha_escopos.back();
+    if (escopo_atual.count(nome_var))
+    {
+        escopo_atual[nome_var].tamanho = novo_tamanho;
+    }
+    else
+    {
+        yyerror("Variável '" + nome_var + "' não encontrada no escopo atual.");
+    }
+}
+
 // gera as variáveis temporárias
 string genTempCode(string tipo)
 {
@@ -143,7 +161,7 @@ string genTempCode(string tipo)
     {
         tipo = "char*";
     }
-    map<string, Variavel> &escopo_atual = pilha_escopos.back();
+    map<string, Variavel>& escopo_atual = pilha_escopos.back();
 
     Variavel v;
     v.nome = to_string(var_temp_qnt);
@@ -179,7 +197,7 @@ void delWDargs()
     }
 }
 
-void makeOp(atributos &$$, atributos $1, atributos $2, atributos $3)
+void makeOp(atributos& $$, atributos $1, atributos $2, atributos $3)
 {
     $$.label = genTempCode("int");
     if ($1.tipo == "char" || $1.tipo == "bool")
@@ -197,7 +215,7 @@ void makeOp(atributos &$$, atributos $1, atributos $2, atributos $3)
         $3.traducao += ($3.tipo != "float") ? "\t" + $$.label + " = (float) " + $3.label + ";\n" : "";
     }
     $$.traducao = $1.traducao + $3.traducao + "\t" + $$.label +
-                  " = " + $1.label + " " + $2.label + " " + $3.label + ";\n";
+        " = " + $1.label + " " + $2.label + " " + $3.label + ";\n";
 }
 
 string convertImplicit(atributos a, atributos b, Variavel v)
@@ -242,6 +260,16 @@ bool checkIsPossible(string t1, string t2)
     return false;
 }
 
+bool isInteger(const string& s) {
+    if (s.empty()) return false;
+    size_t start = (s[0] == '-' || s[0] == '+') ? 1 : 0;
+    if (start == s.size()) return false; // Only sign, no digits
+    for (size_t i = start; i < s.size(); ++i) {
+        if (!std::isdigit(s[i])) return false;
+    }
+    return true;
+}
+
 string zerarVetor(string id, int n)
 {
     string inicio = genLabel();
@@ -251,7 +279,7 @@ string zerarVetor(string id, int n)
     return "\t" + iterator + " = 0;\n" + inicio + ":\n" + "\t" + cond + " = (" + iterator + " < " + to_string(n) + ");\n" + "\tif (!" + cond + ") goto " + fim + ";\n" + "\t" + id + "[" + iterator + "] = 0;\n" + "\t" + iterator + " = " + iterator + " + 1;\n" + "\tgoto " + inicio + ";\n" + fim + ":\n";
 }
 
-string replace(const string &original, const string &alvo, const string &novoValor)
+string replace(const string& original, const string& alvo, const string& novoValor)
 {
     if (alvo.empty())
         return original;
@@ -265,15 +293,24 @@ string replace(const string &original, const string &alvo, const string &novoVal
     return resultado;
 }
 
-// função qye calcula o tamanho da string com tres endereços
+
 string len(string buffer, string tamanho, string cond, string label)
 {
     string c = genTempCode("char");
-    string output = "\t" + tamanho + " = 0;\n" + "\t" + label + ":\n" + c + " = " + buffer + "[" + tamanho + "];\n" + "\t" + cond + " = (" + c + " != '\\0');\n" + "\tif (" + cond + ") goto " + label + "_end;\n" + "\t" + tamanho + " = " + tamanho + " + 1;\n" + "\tgoto " + label + ";\n" + label + "_end:\n\t" + tamanho + " = " + tamanho + " + 1;\n";
+    string cp = genTempCode("char*");
+    string output = "\t" + tamanho + " = 0;\n" + label + ":\n\t"
+        + cp + " = " + buffer + "+" + tamanho + ";\n\t"
+        + c + " = *" + cp + ";\n\t"
+        + cond + " = (" + c + " != '\\0');\n"
+        + "\tif (!" + cond + ") goto " + label + "_end;\n"
+        + "\t" + tamanho + " = " + tamanho + " + 1;\n"
+        + "\tgoto " + label + ";\n" + label + "_end:\n\t"
+        + cp + " = " + tamanho + " + " + buffer + ";\n\t"
+        + "*" + cp + " = '\\0';\n";
     return output;
 }
 
-vector<string> split(const string &s, const string &delimiter)
+vector<string> split(const string& s, const string& delimiter)
 {
     vector<string> tokens;
     size_t start = 0, end;

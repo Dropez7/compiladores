@@ -47,7 +47,7 @@ void genCodigo(string traducao) {
 %token TK_MAIN TK_ID TK_PRINT TK_INPUT
 %token TK_TIPO TK_UNARIO TK_ABREVIADO
 %token TK_IF TK_ELSE TK_LACO TK_DO
-%token TK_SWITCH TK_DEFAULT TK_POTOPOTO
+%token TK_SWITCH TK_DEFAULT
 %token TK_BREAK TK_CONTINUE
 %token TK_WHEELDECIDE TK_OPTION
 %token TK_RELACIONAL
@@ -230,7 +230,7 @@ COMANDO 	: E ';'
 				if ($4.tipo != "" && $4.tipo != $2.tipo) {
 					yyerror("tipo da expressão do switch deve ser igual ao tipo dos cases");
 				}
-				auto conds = split($4.traducao, "CONDICOES");
+				auto conds = split($4.traducao, "\nCONDICOES\n");
 				// reorganiza o vetor de tras pra frente
 				reverse(conds.begin(), conds.end());
 				// coloca o ultimo elemento no inicio
@@ -323,7 +323,11 @@ E 			: BLOCO
 						+ "\tstrcat(" + x4 + ", " + $3.label + ");\n"  // strcat(x4, s2.id)
 						+ "\t" + $$.label + " = " + x4 + ";\n";        // s1.id = x4
 					$$.tipo = "char*";
-					$$.tamanho = to_string(stoi($1.tamanho) + stoi($3.tamanho));
+					if (isInteger($1.tamanho) && isInteger($3.tamanho)) {
+						$$.tamanho = to_string(stoi($1.tamanho) + stoi($3.tamanho));
+					} else { // se um deles não é inteiro, a variável foi obtida pelo input()
+						$$.tamanho = x3; // por acaso x3 já possuí o tamanho das 2 strings
+					}
 					free_vars.insert($$.label);
 				} else {
 					makeOp($$, $1, $2, $3);	
@@ -418,7 +422,7 @@ E 			: BLOCO
 			// int A
 			| TK_TIPO TK_ID
 			{
-				declararVariavel($2.label, $1.label,"");
+				declararVariavel($2.label, $1.label, "");
 			}
 			// A = 2
 			| TK_ID '=' E
@@ -479,7 +483,7 @@ E 			: BLOCO
 				s = s.substr(1, s.length() - 2);
 				$$.tamanho = to_string(s.length()); 
 				$$.label = genTempCode("char*");
-				$$.traducao = "\t" + $$.label + " = malloc(" + to_string((s.length() + 1) * sizeof(char)) + ");\n"
+				$$.traducao = "\t" + $$.label + " = malloc(" + to_string((s.length() + 1)) + ");\n"
 					+ "\tstrcpy(" + $$.label + ", \"" + s + "\");\n";
 				$$.tipo = "char*";
 				free_vars.insert($$.label); // marca para liberar memória
@@ -518,44 +522,83 @@ E 			: BLOCO
 					yyerror("continue fora de laço");
 				}
 			}
+			// int A = input()
 			| TK_TIPO TK_ID '=' TK_INPUT '(' OPTIONAL ')'
 			{
                 if ($1.tipo == "string") {
-                    // Para strings, precisamos alocar dinamicamente
-                    declararVariavel($2.label, $1.tipo, "256");
-                    Variavel v = getVariavel($2.label);
-                    
+					string tamanho = genTempCode("int");
                     string buffer = genTempCode("char*");
-                    string tamanho = genTempCode("int");
 					string cond = genTempCode("bool");
 					string l1 = genLabel();
                     
-                    $$.traducao = $6.traducao +
-                        "\t" + buffer + " = malloc(256);\n" +  // Buffer temporário
-                        "\tfgets(" + buffer + ", 256, stdin);\n" +             // Lê até 255 chars + \0
-                        len(buffer, tamanho, cond, l1) + 
-                        "\t" + v.id + " = malloc(" + tamanho + ");\n" +  // Aloca tamanho exato
-                        "\tstrcpy(" + v.id + ", " + buffer + ");\n" +          // Copia string
-                        "\tfree(" + buffer + ");\n";                          // Libera buffer temporário
+                    // como não sabemos o tamanho, o tamanho é a própria variável 'tamanho' que será calculada
+                    declararVariavel($2.label, $1.tipo, tamanho);
+                    Variavel v = getVariavel($2.label);
                     
-                    // Marca a variável para ser liberada no final
+                    $$.traducao = $6.traducao +
+                        "\t" + buffer + " = malloc(256);\n" + 
+                        "\tfgets(" + buffer + ", 256, stdin);\n" +
+                        len(buffer, tamanho, cond, l1) + 
+                        "\t" + v.id + " = malloc(" + tamanho + ");\n" +
+                        "\tstrcpy(" + v.id + ", " + buffer + ");\n" +
+                        "\tfree(" + buffer + ");\n";
+                    
                     free_vars.insert(v.id);
                 } else {				
-				string mask;
-				switch ($1.tipo[0]) {
-				case 'i':
-					mask = "%d";
-					break;
-				case 'f':
-					mask = "%f";
-					break;
-				case 'c':
-					mask = "%c";
+					string mask;
+					switch ($1.tipo[0]) {
+						case 'i':
+							mask = "%d";
+							break;
+						case 'f':
+							mask = "%f";
+							break;
+						case 'c':
+							mask = "%c";
+					}
+
+					declararVariavel($2.label, $1.label, "");
+					Variavel v = getVariavel($2.label);
+					$$.traducao = $2.traducao + $6.traducao + "\tscanf(\"" + mask + "\", &" + v.id + ");\n";
 				}
 
-				declararVariavel($2.label, $1.label, "0");
-				Variavel v = getVariavel($2.label);
-				$$.traducao = $2.traducao + $6.traducao + "\tscanf(\"" + mask + "\", &" + v.id + ");\n";
+			}
+			// A = input()
+			| TK_ID '=' TK_INPUT '(' OPTIONAL ')'
+			{
+                if ($1.tipo == "string") {
+					string tamanho = genTempCode("int");
+                    string buffer = genTempCode("char*");
+					string cond = genTempCode("bool");
+					string l1 = genLabel();
+                    
+                    Variavel v = getVariavel($2.label);
+					updateTamanho(v.nome, tamanho);
+                    
+                    $$.traducao = $5.traducao +
+                        "\t" + buffer + " = malloc(256);\n" + 
+                        "\tfgets(" + buffer + ", 256, stdin);\n" +
+                        len(buffer, tamanho, cond, l1) + 
+                        "\t" + v.id + " = malloc(" + tamanho + ");\n" +
+                        "\tstrcpy(" + v.id + ", " + buffer + ");\n" +
+                        "\tfree(" + buffer + ");\n";
+                    
+                    free_vars.insert(v.id);
+                } else {				
+					string mask;
+					switch ($1.tipo[0]) {
+						case 'i':
+							mask = "%d";
+							break;
+						case 'f':
+							mask = "%f";
+							break;
+						case 'c':
+							mask = "%c";
+					}
+
+					Variavel v = getVariavel($2.label);
+					$$.traducao = $1.traducao + $5.traducao + "\tscanf(\"" + mask + "\", &" + v.id + ");\n";
 				}
 
 			}
