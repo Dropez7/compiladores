@@ -46,11 +46,12 @@ void genCodigo(string traducao) {
 %token TK_NUM TK_REAL TK_CHAR TK_BOOL TK_STRING
 %token TK_MAIN TK_ID TK_PRINT TK_INPUT
 %token TK_TIPO TK_UNARIO TK_ABREVIADO
+%token TK_RELACIONAL
 %token TK_IF TK_ELSE TK_LACO TK_DO
 %token TK_SWITCH TK_DEFAULT
 %token TK_BREAK TK_CONTINUE
 %token TK_WHEELDECIDE TK_OPTION
-%token TK_RELACIONAL
+%token TK_FUNCAO TK_RETURN
 
 
 %start S
@@ -73,12 +74,33 @@ S : 		TK_MAIN '(' ')' BLOCO
 			{
 				genCodigo($4.traducao);
 			}
-			| { entrar_escopo(); } COMANDOS
+			| TK_FUNCAO TK_ID { entrar_escopo(); } '(' ARGS ')' ':' TK_TIPO { setReturn($8.tipo); } BLOCO
 			{
-				genCodigo($2.traducao);
+				declararFuncao($2, $5.tipo, $8.label);
+				if (!hasReturned) {
+					yyerror("função " + $2.label + " não possui retorno");
+				}
+				cout << $8.label + " " + $2.traducao + "(" + $5.traducao + $10.traducao + "}\n"; 
 			}
 			;
-
+ARGS 		: TK_TIPO TK_ID ',' ARGS
+			{
+				declararVariavel($2.label, $1.label, "");
+				Variavel v = getVariavel($2.label);
+				$$.tipo = $1.label + " " + $4.tipo; // multiplos tipos
+				$$.traducao = $1.label + " " + v.id + ", " + $4.traducao;
+			}
+			| TK_TIPO TK_ID
+			{
+				declararVariavel($2.label, $1.label, "");
+				Variavel v = getVariavel($2.label);
+				$$.tipo = $1.label;
+				$$.traducao = $1.label + " " + v.id + ") {\n";
+			}
+			|
+			{
+				$$.traducao = ") {\n";
+			}
 			;
 BLOCO : '{' { entrar_escopo(); } COMANDOS '}'
 			{
@@ -602,9 +624,20 @@ E 			: BLOCO
 				}
 
 			}
-			| TK_PRINT '(' ARGS ')'
+			| TK_PRINT '(' PRINT_ARGS ')'
 			{
 				$$.traducao = $3.traducao + "\tprintf(\"\\n\");\n";
+			}
+			| TK_RETURN
+			{
+				$$.traducao = "\tgoto FUNCTION_END;\n";
+			}
+			| TK_RETURN E
+			{
+				if ($2.tipo != getReturn()) {
+					yyerror("tipo de retorno errado (esperado: " + getReturn() + ", recebido: " + $2.tipo + ")");
+				}
+				$$.traducao = $2.traducao + "\treturn " + $2.label + ";\n";
 			}
 			;
 OPTIONAL:   E
@@ -619,7 +652,7 @@ OPTIONAL:   E
 				$$.traducao = "";
 			}
 			; 
-ARGS:       E ',' ARGS
+PRINT_ARGS:       E ',' PRINT_ARGS
 			{
 				if ($1.tipo == "char*") {
 					$$.traducao = $1.traducao + "\tprintf(\"%s\", " + $1.label 

@@ -28,6 +28,19 @@ bool operator<(const Variavel& a, const Variavel& b)
     return a.id < b.id;
 }
 
+struct Funcao
+{
+    string nome;
+    string prototipo;
+    string tipo_retorno;
+    string parametros;
+    string id;
+};
+bool operator<(const Funcao& a, const Funcao& b)
+{
+    return a.id < b.id;
+}
+
 struct WDarg
 {
     string guards;
@@ -46,11 +59,27 @@ int nColuna = 1;
 bool wdUsed = false;
 bool canBreak = false;
 bool canContinue = false;
+bool hasReturned = false;
+string returnType;
 void yyerror(string);
 set<Variavel> variaveis;
+set<Funcao> funcoes;
 set<string> free_vars;
 vector<map<string, Variavel>> pilha_escopos;
 vector<WDarg> pilha_wd;
+
+vector<string> split(const string& s, const string& delimiter)
+{
+    vector<string> tokens;
+    size_t start = 0, end;
+    while ((end = s.find(delimiter, start)) != string::npos)
+    {
+        tokens.push_back(s.substr(start, end - start));
+        start = end + delimiter.length();
+    }
+    tokens.push_back(s.substr(start));
+    return tokens;
+}
 
 string genId()
 {
@@ -60,6 +89,20 @@ string genId()
 string genLabel()
 {
     return "L" + to_string(label_qnt++);
+}
+
+void genPrototipo(Funcao& f)
+{
+    string args = "";
+    int n_args = 0;
+    for (const auto& param : split(f.parametros, " "))
+    {
+        if (!args.empty())
+            args += ", ";
+        args += param + " arg" + to_string(n_args++);
+    }
+
+    f.prototipo = f.tipo_retorno + " " + f.nome + "(" + args + ");\n";
 }
 
 void entrar_escopo()
@@ -90,7 +133,15 @@ void declararVariavel(const string& nome_var, const string& tipo_var, const stri
         yyerror("Variável '" + nome_var + "' já declarada neste escopo.");
         return;
     }
-
+    // verifica se a variável já foi declarada como função
+    for (const auto& func : funcoes)
+    {
+        if (func.nome == nome_var)
+        {
+            yyerror("Erro: '" + nome_var + "' já foi declarado como função.");
+            return;
+        }
+    }
     Variavel v;
     v.nome = nome_var;
     v.tipo = (tipo_var == "string") ? "char*" : tipo_var;
@@ -130,6 +181,50 @@ Variavel getVariavel(const string& nome_var, bool turnOffError = false)
     v_erro.tipo = "error_not_found";
     v_erro.id = "<error_id>";
     return v_erro;
+}
+
+void declararFuncao(atributos& $1, string tipos, string retorno) {
+    if ($1.label == "main") {
+        yyerror("função main já declarada");
+    }
+    if ($1.label == "input" || $1.label == "print") {
+        yyerror("função " + $1.label + " já existe");
+    }
+
+    for (const Variavel& var : variaveis) {
+        if (var.nome == $1.label) {
+            yyerror("variável " + $1.label + " já declarada");
+        }
+    }
+
+    for (const Funcao& func : funcoes) {
+        if (func.nome == $1.label && func.parametros == tipos) {
+            yyerror("função " + $1.label + " já declarada");
+        }
+    }
+    Funcao f;
+    f.nome = $1.label;
+    f.tipo_retorno = retorno;
+    f.parametros = tipos;
+    f.id = genId();
+    genPrototipo(f);
+    funcoes.insert(f);
+    $1.traducao = $1.label;
+}
+
+void setReturn(string type) {
+    returnType = type;
+    if (type == "void") {
+        hasReturned = true;
+    }
+    else {
+        hasReturned = false;
+    }
+}
+
+string getReturn() {
+    hasReturned = true;
+    return returnType;
 }
 
 void updateTamanho(const string& nome_var, const string& novo_tamanho)
@@ -308,17 +403,4 @@ string len(string buffer, string tamanho, string cond, string label)
         + cp + " = " + tamanho + " + " + buffer + ";\n\t"
         + "*" + cp + " = '\\0';\n";
     return output;
-}
-
-vector<string> split(const string& s, const string& delimiter)
-{
-    vector<string> tokens;
-    size_t start = 0, end;
-    while ((end = s.find(delimiter, start)) != string::npos)
-    {
-        tokens.push_back(s.substr(start, end - start));
-        start = end + delimiter.length();
-    }
-    tokens.push_back(s.substr(start));
-    return tokens;
 }
