@@ -40,7 +40,7 @@ void genCodigo(string traducao) {
 %}
 
 
-%token TK_NUM TK_REAL TK_CHAR TK_BOOL TK_STRING
+%token TK_NUM TK_REAL TK_BOOL TK_STRING
 %token TK_MAIN TK_ID TK_PRINT TK_INPUT
 %token TK_TIPO TK_UNARIO TK_ABREVIADO
 %token TK_RELACIONAL
@@ -424,10 +424,10 @@ E 			: BLOCO
 						"\t" + $$.label + " = stringcmp(" + $1.label + ", " + $3.label + ");\n" +
 						"\t" + $$.label + " = !" + $$.label + ";\n";
 				} else {
-					if ($1.tipo == "char" || $1.tipo == "char*" || $1.tipo == "bool") {
+					if ($1.tipo == "char*" || $1.tipo == "bool") {
 						yyerror("operação indisponível para tipo " + $1.tipo);
 					}
-					if ($3.tipo == "char" || $3.tipo == "char*" || $3.tipo == "bool") {
+					if ($3.tipo == "char*" || $3.tipo == "bool") {
 						yyerror("operação indisponível para tipo " + $3.tipo);
 					}
 					if ($1.tipo != $3.tipo) {
@@ -552,17 +552,6 @@ E 			: BLOCO
 				$$.label = genTempCode("float");
 				$$.traducao = "\t" + $$.label + " = " + $1.label + ";\n";
 				$$.tipo = "float";
-			}
-			| TK_CHAR
-			{
-				std::string s = $1.label;
-				// replace " with '
-				std::replace(s.begin(), s.end(), '\"', '\'');
-
-
-				$$.label = genTempCode("char");
-				$$.traducao = "\t" + $$.label + " = " + s + ";\n";
-				$$.tipo = "char";
 			}
 			| TK_STRING
 			{
@@ -720,7 +709,7 @@ E 			: BLOCO
 					$$.traducao = "\treturn 0;\n";
 				} else if (type == "float") {
 					$$.traducao = "\treturn 0.0;\n";
-				} else if (type == "char" || type == "string") {
+				} else if (type == "string") {
 					$$.traducao = "\treturn '\\0';\n";
 				}
 			}

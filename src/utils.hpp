@@ -319,11 +319,11 @@ void delWDargs()
 void makeOp(atributos& $$, atributos $1, atributos $2, atributos $3)
 {
     $$.label = genTempCode("int");
-    if ($1.tipo == "char" || $1.tipo == "bool")
+    if ($1.tipo == "bool")
     {
         yyerror("operação indisponível para tipo " + $1.tipo);
     }
-    if ($3.tipo == "char" || $3.tipo == "bool")
+    if ($3.tipo == "bool")
     {
         yyerror("operação indisponível para tipo " + $3.tipo);
     }

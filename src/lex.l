@@ -10,12 +10,11 @@ LETRA [A-Za-z_]
 DELIM {ESPACO}+
 NUM {DIGITO}+
 REAL {NUM}+("."{NUM}+)?
-CHAR ((\"({LETRA}|{DIGITO})\")|('({LETRA}|{DIGITO})'))
 STRING (\"([^"\\]*(\\.[^"\\]*)*)\")|(\'([^"\\]*(\\.[^"\\]*)*)\')
 COMMENT (\/\/\ .*\n?)|(\/\*(.|\n)*\*\/) 
 
 ID {LETRA}({LETRA}|{NUM})*
-TIPO_VAR int|float|char|bool|string
+TIPO_VAR int|float|bool|string
 
 
 BOOL T|F
@@ -59,7 +58,6 @@ BOOL T|F
 
 {NUM}|(-{NUM})	{ nColuna += yyleng; yylval.label = yytext; return TK_NUM; }
 {REAL}|(-{REAL}) { nColuna += yyleng; yylval.label = yytext; return TK_REAL; }
-{CHAR}		{ nColuna += yyleng; yylval.label = yytext; return TK_CHAR; }
 {STRING}	{ nColuna += yyleng; yylval.label = yytext; return TK_STRING; }
 {COMMENT}	{ nColuna += yyleng;}
 {BOOL}      { nColuna += yyleng; yylval.label = yytext; return TK_BOOL; }
