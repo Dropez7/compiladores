@@ -41,6 +41,7 @@ BOOL T|F
 
 "func"     { nColuna += yyleng; return TK_FUNCAO; }
 "return"   { nColuna += yyleng; return TK_RETURN; }
+"null"     { nColuna += yyleng; return TK_NULL; }
 {TIPO_VAR} { nColuna += yyleng; yylval.label = yytext; yylval.tipo = yytext; return TK_TIPO; }
 
 [(){}[\]:;,]	{ nColuna += yyleng; return *yytext; }

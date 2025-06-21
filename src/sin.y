@@ -14,28 +14,24 @@ void genCodigo(string traducao) {
 					"#include <time.h>\n"
 					"#define bool int\n"
 					"#define T 1\n"
-					"#define F 0\n\n"
-					"int main(void) {\n";
-	if (wdUsed) {
-		codigo += "\tunsigned long long int ulli;\n"
-				  "\tulli = time(NULL);\n"
-				  "\tsrand(ulli);\n";
+					"#define F 0\n\n";
+	// define os protótipos de todas as funções
+	// torna redundante a ordem de definição
+	for (const Funcao& func : funcoes) {
+			codigo += func.prototipo;
 	}
+	codigo += "\n";
+	// declara todas as variáveis como globais
+	// facilita o gerenciamento de memória
 	for (const Variavel& var : variaveis) {
 		if (var.nome == var.id.substr(1)) {
-			codigo += "\t" + var.tipo + " " + var.id + ";\n";
+			codigo += "" + var.tipo + " " + var.id + ";\n";
 		} else {
-			codigo += "\t" + var.tipo + " " + var.id + "; // " + var.nome + "\n";
+			codigo += "" + var.tipo + " " + var.id + "; // " + var.nome + "\n";
 		}
 	}
 	
-	codigo += "\n";
-	codigo += traducao;
-	for (const string& var : free_vars) {
-		codigo += "\tfree(" + var + ");\n";
-	}
-	codigo += "\treturn 0;\n";
-	codigo += "}";
+	codigo += "\n" + traducao;
 	
 	cout << codigo << endl;
 }
@@ -51,7 +47,7 @@ void genCodigo(string traducao) {
 %token TK_SWITCH TK_DEFAULT
 %token TK_BREAK TK_CONTINUE
 %token TK_WHEELDECIDE TK_OPTION
-%token TK_FUNCAO TK_RETURN
+%token TK_FUNCAO TK_RETURN TK_NULL
 
 
 %start S
@@ -70,32 +66,69 @@ void genCodigo(string traducao) {
 
 %%
 
-S : 		TK_MAIN '(' ')' BLOCO
+S : 		FUNCOES
 			{
-				genCodigo($4.traducao);
+				genCodigo($1.traducao);
 			}
-			| TK_FUNCAO TK_ID { entrar_escopo(); } '(' ARGS ')' ':' TK_TIPO { setReturn($8.tipo); } BLOCO
+			;
+FUNCOES  :  FUNCAO FUNCOES
 			{
-				declararFuncao($2, $5.tipo, $8.label);
+				$$.traducao = $1.traducao + $2.traducao;
+			}
+			|
+			;
+FUNCAO:     TK_FUNCAO TK_MAIN '(' ')' { setReturn("main"); } BLOCO
+			{
+				$$.traducao += "int main(void) {\n";
+				if (wdUsed) {
+					$$.traducao += "\tunsigned long long int ulli;\n"
+								   "\tulli = time(NULL);\n"
+								   "\tsrand(ulli);\n";
+				}
+				$$.traducao += $6.traducao + "END:\n";
+				for (const string& var : free_vars) {
+					$$.traducao += "\tfree(" + var + ");\n";
+				}
+				$$.traducao += "\treturn 0;\n}";
+			}
+			| TK_FUNCAO TK_ID { entrar_escopo(); } '(' ARGS ')' TIPO BLOCO
+			{
+				declararFuncao($2, $5.tipo, $7.label);
+				Funcao f = getFuncao($2.label, $5.tipo);
 				if (!hasReturned) {
 					yyerror("função " + $2.label + " não possui retorno");
 				}
-				cout << $8.label + " " + $2.traducao + "(" + $5.traducao + $10.traducao + "}\n"; 
+				if ($7.label == "void") {
+					$$.traducao = $7.label + " " + f.id + "(" + $5.traducao + $8.traducao + "}\n\n";
+				} else {
+					$$.traducao = $7.label + " " + f.id + "(" + $5.traducao + $8.traducao + "}\n\n";
+				}
+				hasReturned = false; // reseta o retorno 
+			}
+			;
+TIPO        :  ':' TK_TIPO { setReturn($2.tipo); }
+			{
+				$$ = $2;
+			}
+			|
+			{
+				setReturn("void");
+				$$.label = "void";
 			}
 			;
 ARGS 		: TK_TIPO TK_ID ',' ARGS
 			{
 				declararVariavel($2.label, $1.label, "");
 				Variavel v = getVariavel($2.label);
-				$$.tipo = $1.label + " " + $4.tipo; // multiplos tipos
-				$$.traducao = $1.label + " " + v.id + ", " + $4.traducao;
+				$$.tipo = v.tipo + " " + $4.tipo; // multiplos tipos
+				$$.traducao = v.tipo + " " + v.id + ", " + $4.traducao;
 			}
 			| TK_TIPO TK_ID
 			{
 				declararVariavel($2.label, $1.label, "");
 				Variavel v = getVariavel($2.label);
-				$$.tipo = $1.label;
-				$$.traducao = $1.label + " " + v.id + ") {\n";
+				$$.tipo = v.tipo;
+				$$.traducao = v.tipo + " " + v.id + ") {\n";
 			}
 			|
 			{
@@ -138,7 +171,7 @@ COMANDO 	: E ';'
 					yyerror("condição deve ser do tipo booleano");
 				}
 				string label = genLabel();
-				$$.traducao = $2.traducao + "\tif (!" + $2.label + ") goto " + label + ";\n\t" + $3.traducao + "\t" + label + ":\n";
+				$$.traducao = $2.traducao + "\tif (!" + $2.label + ") goto " + label + ";\n" + $3.traducao + label + ":\n";
 			}
 			| TK_IF E BLOCO TK_ELSE COMANDO
 			{
@@ -628,9 +661,20 @@ E 			: BLOCO
 			{
 				$$.traducao = $3.traducao + "\tprintf(\"\\n\");\n";
 			}
-			| TK_RETURN
+			| TK_RETURN TK_NULL
 			{
-				$$.traducao = "\tgoto FUNCTION_END;\n";
+				string type = getReturn();
+				if (type == "void") {
+					$$.traducao = "\treturn;\n";
+				} else if (type == "main") {
+					$$.traducao = "\tgoto END;\n";
+				} else if (type == "int" || type == "bool") {
+					$$.traducao = "\treturn 0;\n";
+				} else if (type == "float") {
+					$$.traducao = "\treturn 0.0;\n";
+				} else if (type == "char" || type == "string") {
+					$$.traducao = "\treturn '\\0';\n";
+				}
 			}
 			| TK_RETURN E
 			{

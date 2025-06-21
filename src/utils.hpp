@@ -102,7 +102,7 @@ void genPrototipo(Funcao& f)
         args += param + " arg" + to_string(n_args++);
     }
 
-    f.prototipo = f.tipo_retorno + " " + f.nome + "(" + args + ");\n";
+    f.prototipo = f.tipo_retorno + " " + f.id + "(" + args + ");\n";
 }
 
 void entrar_escopo()
@@ -212,9 +212,28 @@ void declararFuncao(atributos& $1, string tipos, string retorno) {
     $1.traducao = $1.label;
 }
 
+Funcao getFuncao(const string& nome_funcao, const string& tipos)
+{
+    for (const Funcao& func : funcoes)
+    {
+        if (func.nome == nome_funcao && func.parametros == tipos)
+        {
+            return func;
+        }
+    }
+    yyerror("Função '" + nome_funcao + "' não declarada.");
+    Funcao f_erro;
+    f_erro.nome = nome_funcao;
+    f_erro.tipo_retorno = "error_not_found";
+    f_erro.parametros = "";
+    f_erro.id = "<error_id>";
+    f_erro.prototipo = "<error_prototype>";
+    return f_erro;
+}
+
 void setReturn(string type) {
     returnType = type;
-    if (type == "void") {
+    if (type == "void" || type == "main") {
         hasReturned = true;
     }
     else {
