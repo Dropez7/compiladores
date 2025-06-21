@@ -7,6 +7,7 @@
 #include "src/utils.hpp"
 
 void genCodigo(string traducao) {
+	string func = genStringcmp();
 	string codigo = "/*Compilador MAPHRA*/\n"
 					"#include <string.h>\n"
 					"#include <stdio.h>\n"
@@ -31,7 +32,7 @@ void genCodigo(string traducao) {
 		}
 	}
 	
-	codigo += "\n" + traducao;
+	codigo += "\n" + func + "\n" + traducao;
 	
 	cout << codigo << endl;
 }
@@ -337,6 +338,10 @@ BLOCO_SWITCH: TK_OPTION E ':' COMANDOS BLOCO_SWITCH
 				if ($5.tipo == "dafoe") {
 					$$.traducao = $2.traducao + "\t" + cond + " = " + $2.label + " == TEMP;\n\tif (" + cond + ") goto " 
 					+ label + ";\n" + $5.traducao + "\nCONDICOES\n" + label + ":\n"+ $4.traducao;
+				} else if ($2.tipo == "char*") {
+					$$.traducao = $2.traducao + "\t" + cond + " = stringcmp(" + $2.label + ", TEMP);\n\tif (" + cond + ") goto " 
+					+ label + ";\n" + $5.traducao + "\nCONDICOES\n" + label + ":\n"+ $4.traducao;
+				
 				} else {
 					$$.traducao = $2.traducao + "\t" + cond + " = " + $2.label + " == TEMP;\n\tif (" + cond + ") goto " 
 					+ label + ";\n" + $5.traducao + "\nCONDICOES\n" + label + ":\n"+ $4.traducao;
@@ -411,19 +416,28 @@ E 			: BLOCO
 			| E TK_RELACIONAL E
 			{
 				$$.label = genTempCode("bool");
-				if ($1.tipo == "char" || $1.tipo == "char*" || $1.tipo == "bool") {
-					yyerror("operação indisponível para tipo " + $1.tipo);
+				if ($1.tipo == "char*" && $3.tipo == "char*" && $2.label == "==") {
+					$$.traducao = $1.traducao + $3.traducao + 
+						"\t" + $$.label + " = stringcmp(" + $1.label + ", " + $3.label + ");\n";
+				} else if ($1.tipo == "char*" && $3.tipo == "char*" && $2.label == "!=") {
+					$$.traducao = $1.traducao + $3.traducao + 
+						"\t" + $$.label + " = stringcmp(" + $1.label + ", " + $3.label + ");\n" +
+						"\t" + $$.label + " = !" + $$.label + ";\n";
+				} else {
+					if ($1.tipo == "char" || $1.tipo == "char*" || $1.tipo == "bool") {
+						yyerror("operação indisponível para tipo " + $1.tipo);
+					}
+					if ($3.tipo == "char" || $3.tipo == "char*" || $3.tipo == "bool") {
+						yyerror("operação indisponível para tipo " + $3.tipo);
+					}
+					if ($1.tipo != $3.tipo) {
+						// converte tudo para float
+						$1.traducao += ($1.tipo != "float") ? "\t" + $$.label + " = (float) " + $1.label + ";\n" : "";
+						$3.traducao += ($3.tipo != "float") ? "\t" + $$.label + " = (float) " + $3.label + ";\n" : "";
+					}
+					$$.traducao = $1.traducao + $3.traducao + "\t" + $$.label +
+						" = " + $1.label + " " + $2.label + " " + $3.label + ";\n";
 				}
-				if ($3.tipo == "char" || $3.tipo == "char*" || $3.tipo == "bool") {
-					yyerror("operação indisponível para tipo " + $3.tipo);
-				}
-				if ($1.tipo != $3.tipo) {
-					// converte tudo para float
-					$1.traducao += ($1.tipo != "float") ? "\t" + $$.label + " = (float) " + $1.label + ";\n" : "";
-					$3.traducao += ($3.tipo != "float") ? "\t" + $$.label + " = (float) " + $3.label + ";\n" : "";
-				}
-				$$.traducao = $1.traducao + $3.traducao + "\t" + $$.label +
-					" = " + $1.label + " " + $2.label + " " + $3.label + ";\n";
 				$$.tipo = "bool";
 			}
 			| TK_ID TK_UNARIO

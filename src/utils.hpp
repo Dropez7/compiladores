@@ -424,7 +424,39 @@ string len(string buffer, string tamanho, string cond, string label)
         + "\tif (!" + cond + ") goto " + label + "_end;\n"
         + "\t" + tamanho + " = " + tamanho + " + 1;\n"
         + "\tgoto " + label + ";\n" + label + "_end:\n\t"
+        + "\t" + tamanho + " = " + tamanho + " - 1;\n\t"
         + cp + " = " + tamanho + " + " + buffer + ";\n\t"
         + "*" + cp + " = '\\0';\n";
     return output;
+}
+
+string genStringcmp() {
+    Variavel v1, v2, v3;
+    v1.nome = "c1";
+    v1.tipo = "char";
+    v1.id = "c1";
+    v2.nome = "c2";
+    v2.tipo = "char";
+    v2.id = "c2";
+    v3.nome = "b";
+    v3.tipo = "bool";
+    v3.id = "b";
+    variaveis.insert(v1);
+    variaveis.insert(v2);
+    variaveis.insert(v3);
+    return "bool stringcmp(char* s1, char* s2) {\n"
+        "L0:\n"
+        "\tc1 = *s1;\n"
+        "\tc2 = *s2;\n"
+        "\tb = (c1 != c2);\n"
+        "\tif (b) goto L1;\n"
+        "\tb = c1 == '\\0';\n"
+        "\tif (b) goto L2;\n"
+        "\ts1 = s1 + 1;\n"
+        "\ts2 = s2 + 1;\n"
+        "\tgoto L0;\n"
+        "L1:\n"
+        "\treturn F;\n"
+        "L2:\n"
+        "\treturn T;\n}\n";
 }
