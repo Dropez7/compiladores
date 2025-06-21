@@ -2,3 +2,12 @@ func teste(int a, int b, int c): int {
     print("hello world")
 	return 5
 }
+
+func teste() {
+    print("hello world2")
+}
+
+func main() {
+    teste(1, 2, 3)
+    teste()
+}

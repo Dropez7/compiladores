@@ -76,6 +76,9 @@ FUNCOES  :  FUNCAO FUNCOES
 				$$.traducao = $1.traducao + $2.traducao;
 			}
 			|
+			{
+				$$.traducao = "";
+			}
 			;
 FUNCAO:     TK_FUNCAO TK_MAIN '(' ')' { setReturn("main"); } BLOCO
 			{
@@ -132,9 +135,25 @@ ARGS 		: TK_TIPO TK_ID ',' ARGS
 			}
 			|
 			{
+				$$.tipo = "";
 				$$.traducao = ") {\n";
 			}
 			;
+CALL_ARGS   : E ',' CALL_ARGS
+			{
+				$$.tipo = $1.tipo + " " + $3.tipo; // multiplos tipos
+				$$.traducao = $1.label + ", " + $3.traducao;
+			}
+			| E
+			{
+				$$.tipo = $1.tipo;
+				$$.traducao = $1.label + ");\n";
+			}
+			|
+			{
+				$$.tipo = "";
+				$$.traducao = ");\n";
+			}
 BLOCO : '{' { entrar_escopo(); } COMANDOS '}'
 			{
 				sair_escopo();
@@ -556,8 +575,7 @@ E 			: BLOCO
 			| TK_ID
 			{
 				Variavel v = getVariavel($1.label);
-				$$.label = genTempCode(v.tipo);
-				$$.traducao = "\t" + $$.label + " = " + v.id + ";\n";
+				$$.label = v.id;
 				$$.tipo = v.tipo;
 				$$.tamanho = v.tamanho;
 			}
@@ -575,6 +593,22 @@ E 			: BLOCO
 					$$.traducao = "\tgoto CONTINUE;\n";
 				} else {
 					yyerror("continue fora de laço");
+				}
+			}
+			| TK_ID '(' CALL_ARGS ')'
+			{
+				if ($1.label == "main") {
+					yyerror("função main não pode ser chamada");
+				}
+
+				Funcao f = getFuncao($1.label, $3.tipo);
+				if (f.tipo_retorno != "void") {
+					$$.label = genTempCode(f.tipo_retorno);
+					$$.traducao = "\t" + $$.label + " = " + f.id + "(" + $3.traducao;
+					$$.tipo = f.tipo_retorno;
+				} else {
+					$$.tipo = "void";
+					$$.traducao = "\t" + f.id + "(" + $3.traducao;
 				}
 			}
 			// int A = input()

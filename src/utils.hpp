@@ -93,6 +93,11 @@ string genLabel()
 
 void genPrototipo(Funcao& f)
 {
+    if (f.parametros == "")
+    {
+        f.prototipo = f.tipo_retorno + " " + f.id + "();\n";
+        return;
+    }
     string args = "";
     int n_args = 0;
     for (const auto& param : split(f.parametros, " "))
@@ -221,7 +226,7 @@ Funcao getFuncao(const string& nome_funcao, const string& tipos)
             return func;
         }
     }
-    yyerror("Função '" + nome_funcao + "' não declarada.");
+    yyerror("Função '" + nome_funcao + "' com parâmetros do tipo '" + tipos + "' não encontrada.");
     Funcao f_erro;
     f_erro.nome = nome_funcao;
     f_erro.tipo_retorno = "error_not_found";
