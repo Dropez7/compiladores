@@ -728,30 +728,17 @@ E 			: BLOCO
 				}
 				$$.traducao = $2.traducao + "\treturn " + $2.label + ";\n";
 			}
-			| T_LBRACKET lista_elementos T_RBRACKET
-			{
-				// A mágica de criar o vetor temporário ficará aqui.
-				// $2 contém os dados dos elementos da lista.
-				$$ = $2; 
-				$$.tipo = "__vetor"; // Marcamos que o resultado é um vetor
-			}
 			| TK_TIPO TK_ID lista_colchetes_vazios
 			{
-				// 1. O tipo base é o que vem do token (ex: "int")
 				string tipo_base = $1.label;
 				declararVariavel($2.label, tipo_base, "");
 
-				// 2. Busca a variável e configura seus campos
 				Variavel& v = pilha_escopos.back()[$2.label];
 				v.ehDinamico = true;
-				v.numDimensoes = $3.nivelAcesso; // <-- Usamos o contador da regra abaixo
-
-				// Remove a cópia antiga do set de variáveis globais
+				v.numDimensoes = $3.nivelAcesso;
 				variaveis.erase(v); 
-				// Insere a versão atualizada (com ehDinamico=true) de volta no set
 				variaveis.insert(v);
 
-				// 4. Gera o código de INICIALIZAÇÃO da variável (lógica que você já tem)
 				$$.traducao = "\tstruct Vetor " + v.id + ";\n";
 				$$.traducao += "\t" + v.id + ".tamanho = 0;\n";
 				$$.traducao += "\t" + v.id + ".capacidade = 0;\n";
@@ -765,26 +752,18 @@ E 			: BLOCO
 					sizeof_arg = tipo_base;
 				}
 				$$.traducao += "\t" + v.id + ".tam_elemento = sizeof(" + sizeof_arg + ");\n";
-							}
+			}
 
-			// Mantido: Regra de atribuição a um elemento do vetor (ex: v[i] = 10;). Essencial.
 			| acesso_vetor '=' E 
 			{
-				// O tipo do elemento do vetor (ex: "int")
 				string tipo_destino = $1.tipo; 
-				
-				// O tipo da expressão à direita (ex: "int" ou "float")
 				string tipo_origem = $3.tipo; 
-				
-				// A variável temporária ou constante da expressão (ex: "t10" ou "100")
 				string rhs_label = $3.label;
 
-				// Se os tipos são diferentes, verifica se a conversão implícita é possível
 				if (tipo_destino != tipo_origem)
 				{
 					if (checkIsPossible(tipo_destino, tipo_origem))
 					{
-						// Adiciona um cast na geração do código, se necessário
 						rhs_label = "(" + tipo_destino + ") " + $3.label;
 					}
 					else
@@ -793,11 +772,8 @@ E 			: BLOCO
 					}
 				}
 
-				// Geração de Código da atribuição
 				$$.traducao = $1.traducao + $3.traducao + "\t" + $1.label + " = " + rhs_label + ";\n";
 			}
-
-			// Esta é a nova regra, sem ambiguidade
 			| TK_APPEND '(' TK_ID ',' E ')'
 			{
 				Variavel v = getVariavel($3.label);
@@ -808,11 +784,7 @@ E 			: BLOCO
 					if (v.numDimensoes != 2) { 
 						yyerror("Tentativa de adicionar um vetor a uma matriz que não é 2D."); 
 					}
-					
-					// O $5.traducao contém todo o código que cria e preenche o vetor temporário.
 					$$.traducao = $5.traducao;
-					// O $5.label é o ID do vetor temporário (ex: t2).
-					// Adicionamos a struct do vetor temporário na matriz principal.
 					$$.traducao += append_code(v.id, "struct Vetor", $5.label);
 
 				} 
@@ -833,14 +805,11 @@ E 			: BLOCO
 				}
 			}
 			
-			// Mantido: Regra de passagem para 'acesso_vetor'.
 			| acesso_vetor 
 			| inicializacao_lista {
 				$$ = $1; // Apenas repassa os atributos.
 			}
 			;
-
-// Nova regra para contar os pares de colchetes
 lista_colchetes_vazios: T_LBRACKET T_RBRACKET
 			{
 				// Caso base: encontrou o primeiro []. O nível/dimensão é 1.
@@ -852,61 +821,49 @@ lista_colchetes_vazios: T_LBRACKET T_RBRACKET
 				$$.nivelAcesso = $1.nivelAcesso + 1;
 			}
 			;
+
 inicializacao_lista:
-    T_LBRACKET lista_elementos T_RBRACKET
-    {
-        // Esta regra junta tudo. O resultado da lista ($2) é o resultado final.
-        $$ = $2;
-        // Marcamos o tipo do resultado como especial para a regra do append.
-        $$.tipo = "__vetor"; 
-    }
-;
+			T_LBRACKET lista_elementos T_RBRACKET
+			{
+				$$ = $2;
+				$$.tipo = "__vetor"; 
+			}
+			;
 
-lista_elementos:
-    E
-    {
-        // CASO BASE: Primeiro elemento da lista (ex: "10").
-        // Aqui, criamos um vetor temporário e adicionamos esse primeiro elemento a ele.
-        string tipo_base_lista = $1.tipo;
-        
-        // 1. Cria e REGISTRA uma Variavel para o vetor temporário.
-        Variavel temp_v;
-        temp_v.nome = "temp_vet_" + to_string(var_temp_qnt);
-        temp_v.id = genId();
-        temp_v.tipo = tipo_base_lista;
-        temp_v.ehDinamico = true;
-        temp_v.numDimensoes = 1;
-        variaveis.insert(temp_v);
+lista_elementos: E
+			{
+				string tipo_base_lista = $1.tipo;
+				
+				Variavel temp_v;
+				temp_v.nome = "temp_vet_" + to_string(var_temp_qnt);
+				temp_v.id = genId();
+				temp_v.tipo = tipo_base_lista;
+				temp_v.ehDinamico = true;
+				temp_v.numDimensoes = 1;
+				variaveis.insert(temp_v);
 
-        // 2. Gera o código para inicializar a struct do vetor temporário.
-        $$.traducao = $1.traducao; // Código da expressão do primeiro elemento.
-        $$.traducao += "\tstruct Vetor " + temp_v.id + ";\n";
-        $$.traducao += "\t" + temp_v.id + ".tamanho = 0;\n";
-        $$.traducao += "\t" + temp_v.id + ".capacidade = 0;\n";
-        $$.traducao += "\t" + temp_v.id + ".data = NULL;\n";
-        $$.traducao += "\t" + temp_v.id + ".tam_elemento = sizeof(" + tipo_base_lista + ");\n";
-        
-        // 3. Usa a função auxiliar para gerar o código do append.
-        $$.traducao += append_code(temp_v.id, tipo_base_lista, $1.label);
+				$$.traducao = $1.traducao; // Código da expressão do primeiro elemento.
+				$$.traducao += "\tstruct Vetor " + temp_v.id + ";\n";
+				$$.traducao += "\t" + temp_v.id + ".tamanho = 0;\n";
+				$$.traducao += "\t" + temp_v.id + ".capacidade = 0;\n";
+				$$.traducao += "\t" + temp_v.id + ".data = NULL;\n";
+				$$.traducao += "\t" + temp_v.id + ".tam_elemento = sizeof(" + tipo_base_lista + ");\n";
+				
+				$$.traducao += append_code(temp_v.id, tipo_base_lista, $1.label);
 
-        // 4. Define os atributos para a próxima regra.
-        $$.label = temp_v.id; // O resultado é o ID do vetor temporário (ex: t2).
-        $$.tipo = tipo_base_lista; // Guarda o tipo dos elementos.
-    }
-    | lista_elementos ',' E
-    {
-        // CASO RECURSIVO: Elementos seguintes (ex: ", 20").
-        $$ = $1; // Pega os atributos do vetor temporário já criado.
-        if ($1.tipo != $3.tipo) { yyerror("Tipos mistos em lista de inicialização não são permitidos."); }
-        
-        // Adiciona o código do novo elemento e o código do append.
-        $$.traducao += $3.traducao;
-        $$.traducao += append_code($1.label, $1.tipo, $3.label);
-    }
-;
+				$$.label = temp_v.id; // O resultado é o ID do vetor temporário (ex: t2).
+				$$.tipo = tipo_base_lista; // Guarda o tipo dos elementos.
+			}
+			| lista_elementos ',' E
+			{
+				$$ = $1; // Pega os atributos do vetor temporário já criado.
+				if ($1.tipo != $3.tipo) { yyerror("Tipos mistos em lista de inicialização não são permitidos."); }
+				
+				$$.traducao += $3.traducao;
+				$$.traducao += append_code($1.label, $1.tipo, $3.label);
+			}
+			;
 			
-
-// Mantido: Definição da regra 'acesso_vetor', já simplificada para dinâmicos.
 acesso_vetor:  TK_ID T_LBRACKET E T_RBRACKET
 			{
 				Variavel v = getVariavel($1.label); // Busca a variável original
@@ -942,15 +899,14 @@ acesso_vetor:  TK_ID T_LBRACKET E T_RBRACKET
 
 				if ($$.nivelAcesso < v.numDimensoes) {
 					$$.tipo = "__vetor";
-					// O $1.label aqui está correto, pois ele contém o acesso anterior
 					$$.label = "((struct Vetor*)" + $1.label + ".data)[" + $3.label + "]";
 				} else {
 					$$.tipo = v.tipo;
 					$$.label = "((" + v.tipo + "*)" + $1.label + ".data)[" + $3.label + "]";
 				}
 			}
-
-		;
+			;
+			
 OPTIONAL:   E
 			{
 				if ($1.tipo != "char*") {
