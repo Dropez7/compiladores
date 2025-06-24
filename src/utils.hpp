@@ -8,8 +8,7 @@
 
 using namespace std;
 
-string cabecalho_global = "";
-bool definicao_vetor_impressa = false;
+string structVetor = "struct Vetor {\n\tvoid* data;\n\tint tamanho;\n\tint capacidade;\n\tsize_t tam_elemento;\n};\n\n";
 
 struct atributos
 {
@@ -18,6 +17,8 @@ struct atributos
     string traducao;
     string tipo;
     vector<int> dimensoes; 
+    int nivelAcesso = 0;
+    string id_original;
 };
 
 struct Variavel
@@ -27,6 +28,8 @@ struct Variavel
     string id;
     string tamanho;
     bool ehDinamico = false;
+    int numDimensoes = 0;
+
 };
 bool operator<(const Variavel& a, const Variavel& b)
 {
@@ -450,6 +453,9 @@ string genStringcmp() {
     variaveis.insert(v2);
     variaveis.insert(v3);
     return "bool stringcmp(char* s1, char* s2) {\n"
+        "\tchar c1;\n"   // <-- Declarada localmente
+        "\tchar c2;\n"   // <-- Declarada localmente
+        "\tbool b;\n"    // <-- Declarada localmente
         "L0:\n"
         "\tc1 = *s1;\n"
         "\tc2 = *s2;\n"
@@ -501,5 +507,33 @@ string gerarAlocacaoRecursiva(const string& id, const string& tipo_base, const v
         code += lbl_fim + ":\n";
     }
 
+    return code;
+}
+
+// Função auxiliar que gera o código C para a operação append
+// e REGISTRA as variáveis temporárias que cria.
+string append_code(string vet_id, string tipo_base, string val_label) {
+    string l_realloc = genLabel();
+    string cond_realloc = genTempCode("bool"); // Usa genTempCode
+    string nova_capacidade = genTempCode("int");  // Usa genTempCode
+    string cond_nova_cap = genTempCode("bool"); // Usa genTempCode
+
+    string code;
+    code += "\t" + cond_realloc + " = " + vet_id + ".tamanho == " + vet_id + ".capacidade;\n";
+    code += "\tif (!" + cond_realloc + ") goto " + l_realloc + ";\n";
+    code += "\t" + cond_nova_cap + " = " + vet_id + ".capacidade == 0;\n";
+    code += "\t" + nova_capacidade + " = " + cond_nova_cap + " ? 8 : " + vet_id + ".capacidade * 2;\n";
+    code += "\t" + vet_id + ".data = realloc(" + vet_id + ".data, " + nova_capacidade + " * " + vet_id + ".tam_elemento);\n";
+    code += "\t" + vet_id + ".capacidade = " + nova_capacidade + ";\n";
+    code += l_realloc + ":\n";
+    
+    // Diferencia se estamos adicionando um valor (int, float) ou outra struct Vetor
+    if (tipo_base == "struct Vetor") {
+        code += "\t((struct Vetor*)" + vet_id + ".data)[" + vet_id + ".tamanho] = " + val_label + ";\n";
+    } else {
+        code += "\t((" + tipo_base + "*)" + vet_id + ".data)[" + vet_id + ".tamanho] = " + val_label + ";\n";
+    }
+    
+    code += "\t" + vet_id + ".tamanho = " + vet_id + ".tamanho + 1;\n";
     return code;
 }

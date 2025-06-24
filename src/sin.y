@@ -7,34 +7,41 @@
 #include "src/utils.hpp"
 
 void genCodigo(string traducao) {
-	string func = genStringcmp();
-	string codigo = "/*Compilador MAPHRA*/\n"
-					"#include <string.h>\n"
-					"#include <stdio.h>\n"
-					"#include <stdlib.h>\n"
-					"#include <time.h>\n"
-					"#define bool int\n"
-					"#define T 1\n"
-					"#define F 0\n\n";
-	// define os protótipos de todas as funções
-	// torna redundante a ordem de definição
-	for (const Funcao& func : funcoes) {
-			codigo += func.prototipo;
-	}
-	codigo += "\n";
-	// declara todas as variáveis como globais
-	// facilita o gerenciamento de memória
-	for (const Variavel& var : variaveis) {
-		if (var.nome == var.id.substr(1)) {
-			codigo += "" + var.tipo + " " + var.id + ";\n";
-		} else {
-			codigo += "" + var.tipo + " " + var.id + "; // " + var.nome + "\n";
-		}
-	}
-	
-	codigo += "\n" + func + "\n" + traducao;
-	
-	cout << codigo << endl;
+    // Cabeçalho padrão do C
+    string codigo = "/*Compilador MAPHRA*/\n"
+                  "#include <string.h>\n"
+                  "#include <stdio.h>\n"
+                  "#include <stdlib.h>\n"
+                  "#include <time.h>\n"
+                  "#define bool int\n"
+                  "#define T 1\n"
+                  "#define F 0\n\n";
+
+    // Adiciona a definição da "struct Vetor" que foi gerada pelo parser
+    codigo += structVetor;
+
+    // Protótipos de Funções
+    for (const Funcao& func : funcoes) {
+        codigo += func.prototipo;
+    }
+    codigo += "\n";
+
+    // Declarações de Variáveis Globais
+    for (const Variavel& var : variaveis) {
+        if (var.ehDinamico) {
+            // CORREÇÃO AQUI: Adicionado um espaço depois de "Vetor"
+            codigo += "struct Vetor " + var.id + "; // " + var.nome + "\n";
+        } else {
+            // Simplifiquei o else if/else, pois ambos faziam a mesma coisa
+            codigo += var.tipo + " " + var.id + "; // " + var.nome + "\n";
+        }
+    }
+    
+    // Adiciona a função de comparação de string e o código traduzido
+    codigo += "\n" + genStringcmp() + "\n" + traducao;
+    
+    // Imprime o código final
+    cout << codigo << endl;
 }
 
 %}
@@ -50,6 +57,7 @@ void genCodigo(string traducao) {
 %token TK_WHEELDECIDE TK_OPTION
 %token TK_FUNCAO TK_RETURN TK_NULL
 %token T_LBRACKET T_RBRACKET
+%token TK_APPEND
 
 %start S
 
@@ -720,35 +728,48 @@ E 			: BLOCO
 				}
 				$$.traducao = $2.traducao + "\treturn " + $2.label + ";\n";
 			}
-			// Arrays e Vetores - Estáticos
-			| TK_TIPO TK_ID lista_dimensoes
+			| T_LBRACKET lista_elementos T_RBRACKET
 			{
-				string nome_var = $2.label;
-				string tipo_base = ($1.tipo == "string") ? "char" : $1.tipo;
-
-				// define tipo como int*, int**, etc.
-				string tipo_var = tipo_base + string($3.dimensoes.size(), '*');
-
-				// calcula o total de elementos para eventual inicialização
-				int total_size = 1;
-				string tamanho_str = "";
-				for (size_t i = 0; i < $3.dimensoes.size(); ++i) {
-					total_size *= $3.dimensoes[i];
-					tamanho_str += (i == 0 ? "" : "*") + to_string($3.dimensoes[i]);
-				}
-
-				declararVariavel(nome_var, tipo_var, tamanho_str);
-
-				Variavel v = getVariavel(nome_var);
-
-				string initCode = gerarAlocacaoRecursiva(v.id, tipo_base, $3.dimensoes);
-
-				$$ = $2;
-				$$.traducao = initCode;
+				// A mágica de criar o vetor temporário ficará aqui.
+				// $2 contém os dados dos elementos da lista.
+				$$ = $2; 
+				$$.tipo = "__vetor"; // Marcamos que o resultado é um vetor
 			}
-			| acesso_vetor
-			| acesso_vetor '=' E {
-				 
+			| TK_TIPO TK_ID lista_colchetes_vazios
+			{
+				// 1. O tipo base é o que vem do token (ex: "int")
+				string tipo_base = $1.label;
+				declararVariavel($2.label, tipo_base, "");
+
+				// 2. Busca a variável e configura seus campos
+				Variavel& v = pilha_escopos.back()[$2.label];
+				v.ehDinamico = true;
+				v.numDimensoes = $3.nivelAcesso; // <-- Usamos o contador da regra abaixo
+
+				// Remove a cópia antiga do set de variáveis globais
+				variaveis.erase(v); 
+				// Insere a versão atualizada (com ehDinamico=true) de volta no set
+				variaveis.insert(v);
+
+				// 4. Gera o código de INICIALIZAÇÃO da variável (lógica que você já tem)
+				$$.traducao = "\tstruct Vetor " + v.id + ";\n";
+				$$.traducao += "\t" + v.id + ".tamanho = 0;\n";
+				$$.traducao += "\t" + v.id + ".capacidade = 0;\n";
+				$$.traducao += "\t" + v.id + ".data = NULL;\n";
+				string sizeof_arg;
+				if (v.numDimensoes > 1) {
+					// Se for 2D ou mais, o elemento é outro vetor.
+					sizeof_arg = "struct Vetor";
+				} else {
+					// Se for 1D, o elemento é do tipo base.
+					sizeof_arg = tipo_base;
+				}
+				$$.traducao += "\t" + v.id + ".tam_elemento = sizeof(" + sizeof_arg + ");\n";
+							}
+
+			// Mantido: Regra de atribuição a um elemento do vetor (ex: v[i] = 10;). Essencial.
+			| acesso_vetor '=' E 
+			{
 				// O tipo do elemento do vetor (ex: "int")
 				string tipo_destino = $1.tipo; 
 				
@@ -761,7 +782,6 @@ E 			: BLOCO
 				// Se os tipos são diferentes, verifica se a conversão implícita é possível
 				if (tipo_destino != tipo_origem)
 				{
-					// Usa a função que você já tem em utils.hpp
 					if (checkIsPossible(tipo_destino, tipo_origem))
 					{
 						// Adiciona um cast na geração do código, se necessário
@@ -773,107 +793,164 @@ E 			: BLOCO
 					}
 				}
 
-				// 2. Geração de Código
-				// A tradução final é:
-				// - O código para calcular os índices (já em $1.traducao)
-				// - O código para calcular a expressão (já em $3.traducao)
-				// - A nova linha de atribuição
+				// Geração de Código da atribuição
 				$$.traducao = $1.traducao + $3.traducao + "\t" + $1.label + " = " + rhs_label + ";\n";
 			}
 
-			| TK_TIPO TK_ID T_LBRACKET T_RBRACKET ';' // Adicionei o ';' que provavelmente faltava
+			// Esta é a nova regra, sem ambiguidade
+			| TK_APPEND '(' TK_ID ',' E ')'
 			{
-				// 1. O tipo base é o que vem do token (ex: "int")
-				string tipo_base = $1.label;
-				declararVariavel($2.label, tipo_base, "");
+				Variavel v = getVariavel($3.label);
+				if (!v.ehDinamico) { yyerror("O primeiro argumento de 'append' deve ser um vetor."); }
 
-				// 2. Busca a variável que acabamos de criar e a marca como dinâmica
-				Variavel& v = pilha_escopos.back()[$2.label];
-				v.ehDinamico = true;
+				// CASO 1: append(matriz, [1,2,3]) -> Adicionando um vetor a uma matriz
+				if ($5.tipo == "__vetor") { 
+					if (v.numDimensoes != 2) { 
+						yyerror("Tentativa de adicionar um vetor a uma matriz que não é 2D."); 
+					}
+					
+					// O $5.traducao contém todo o código que cria e preenche o vetor temporário.
+					$$.traducao = $5.traducao;
+					// O $5.label é o ID do vetor temporário (ex: t2).
+					// Adicionamos a struct do vetor temporário na matriz principal.
+					$$.traducao += append_code(v.id, "struct Vetor", $5.label);
 
-				// 3. Adiciona a DEFINIÇÃO da struct Vetor ao cabeçalho (APENAS UMA VEZ)
-				if (!definicao_vetor_impressa) {
-					cabecalho_global += "struct Vetor {\n";
-					cabecalho_global += "\tvoid* data;\n";
-					cabecalho_global += "\tint tamanho;\n";
-					cabecalho_global += "\tint capacidade;\n";
-					cabecalho_global += "\tsize_t tam_elemento;\n};\n\n";
-					definicao_vetor_impressa = true;
+				} 
+				// CASO 2: append(vetor_1d, 42) -> Adicionando um valor a um vetor 1D
+				else { 
+					if (v.numDimensoes != 1) { 
+						yyerror("Tentativa de adicionar um valor simples a uma matriz. Use a sintaxe de lista []."); 
+					}
+					if (v.tipo != $5.tipo && !checkIsPossible(v.tipo, $5.tipo)) { 
+						yyerror("Tipo do valor incompatível com o tipo do vetor.");
+					}
+					
+					string val_label = $5.label;
+					if (v.tipo != $5.tipo) { val_label = "(" + v.tipo + ")" + val_label; }
+
+					$$.traducao = $5.traducao;
+					$$.traducao += append_code(v.id, v.tipo, val_label);
 				}
-
-				// 4. Gera o código de INICIALIZAÇÃO da variável
-				$$.traducao = "\tstruct Vetor " + v.id + ";\n";
-				$$.traducao += "\t" + v.id + ".tamanho = 0;\n";
-				$$.traducao += "\t" + v.id + ".capacidade = 0;\n";
-				$$.traducao += "\t" + v.id + ".data = NULL;\n";
-				$$.traducao += "\t" + v.id + ".tam_elemento = sizeof(" + tipo_base + ");\n";
+			}
+			
+			// Mantido: Regra de passagem para 'acesso_vetor'.
+			| acesso_vetor 
+			| inicializacao_lista {
+				$$ = $1; // Apenas repassa os atributos.
 			}
 			;
 
-lista_dimensoes: lista_dimensoes T_LBRACKET TK_NUM T_RBRACKET
+// Nova regra para contar os pares de colchetes
+lista_colchetes_vazios: T_LBRACKET T_RBRACKET
 			{
-				$$ = $1;
-				int dim = stoi($3.label);
-				if (dim <= 0) yyerror("Dimensão inválida em vetor.");
-				$$.dimensoes.push_back(dim);
+				// Caso base: encontrou o primeiro []. O nível/dimensão é 1.
+				$$.nivelAcesso = 1;
 			}
-			| T_LBRACKET TK_NUM T_RBRACKET
+			| lista_colchetes_vazios T_LBRACKET T_RBRACKET
 			{
-				int dim = stoi($2.label);
-				if (dim <= 0) yyerror("Dimensão inválida em vetor.");
-				$$.dimensoes = vector<int>{dim};
-			};
+				// Caso recursivo: encontrou mais um []. Incrementa o contador.
+				$$.nivelAcesso = $1.nivelAcesso + 1;
+			}
+			;
+inicializacao_lista:
+    T_LBRACKET lista_elementos T_RBRACKET
+    {
+        // Esta regra junta tudo. O resultado da lista ($2) é o resultado final.
+        $$ = $2;
+        // Marcamos o tipo do resultado como especial para a regra do append.
+        $$.tipo = "__vetor"; 
+    }
+;
 
+lista_elementos:
+    E
+    {
+        // CASO BASE: Primeiro elemento da lista (ex: "10").
+        // Aqui, criamos um vetor temporário e adicionamos esse primeiro elemento a ele.
+        string tipo_base_lista = $1.tipo;
+        
+        // 1. Cria e REGISTRA uma Variavel para o vetor temporário.
+        Variavel temp_v;
+        temp_v.nome = "temp_vet_" + to_string(var_temp_qnt);
+        temp_v.id = genId();
+        temp_v.tipo = tipo_base_lista;
+        temp_v.ehDinamico = true;
+        temp_v.numDimensoes = 1;
+        variaveis.insert(temp_v);
+
+        // 2. Gera o código para inicializar a struct do vetor temporário.
+        $$.traducao = $1.traducao; // Código da expressão do primeiro elemento.
+        $$.traducao += "\tstruct Vetor " + temp_v.id + ";\n";
+        $$.traducao += "\t" + temp_v.id + ".tamanho = 0;\n";
+        $$.traducao += "\t" + temp_v.id + ".capacidade = 0;\n";
+        $$.traducao += "\t" + temp_v.id + ".data = NULL;\n";
+        $$.traducao += "\t" + temp_v.id + ".tam_elemento = sizeof(" + tipo_base_lista + ");\n";
+        
+        // 3. Usa a função auxiliar para gerar o código do append.
+        $$.traducao += append_code(temp_v.id, tipo_base_lista, $1.label);
+
+        // 4. Define os atributos para a próxima regra.
+        $$.label = temp_v.id; // O resultado é o ID do vetor temporário (ex: t2).
+        $$.tipo = tipo_base_lista; // Guarda o tipo dos elementos.
+    }
+    | lista_elementos ',' E
+    {
+        // CASO RECURSIVO: Elementos seguintes (ex: ", 20").
+        $$ = $1; // Pega os atributos do vetor temporário já criado.
+        if ($1.tipo != $3.tipo) { yyerror("Tipos mistos em lista de inicialização não são permitidos."); }
+        
+        // Adiciona o código do novo elemento e o código do append.
+        $$.traducao += $3.traducao;
+        $$.traducao += append_code($1.label, $1.tipo, $3.label);
+    }
+;
+			
+
+// Mantido: Definição da regra 'acesso_vetor', já simplificada para dinâmicos.
 acesso_vetor:  TK_ID T_LBRACKET E T_RBRACKET
 			{
-				// 1. Busca a variável (ex: 'matriz') na tabela de símbolos.
-				Variavel v = getVariavel($1.label);
+				Variavel v = getVariavel($1.label); // Busca a variável original
+				if (!v.ehDinamico) { yyerror("A variável '" + v.nome + "' não é um vetor dinâmico."); }
+				if ($3.tipo != "int") { yyerror("O índice de um vetor deve ser um inteiro."); }
 
-				// 2. Validação Semântica
-				if (v.tipo.find("*") == string::npos) {
-					yyerror("variável '" + v.nome + "' não é um vetor/ponteiro.");
-				}
-				if ($3.tipo != "int") {
-					yyerror("índice do vetor deve ser um inteiro.");
-				}
-
-				// 3. Geração de Código
-				// O label resultante é o próprio acesso em C.
-				$$.label = v.id + "[" + $3.label + "]";
-
-				// A tradução acumula o código gerado pela expressão do índice.
+				// Salva o nome da variável original para os próximos acessos
+				$$.id_original = $1.label; 
+				
 				$$.traducao = $1.traducao + $3.traducao;
+				$$.nivelAcesso = 1;
 
-				// 4. Determina o tipo resultante. Se era int***, agora é int**.
-				string tipo_resultante = v.tipo;
-				tipo_resultante.pop_back(); // Remove um '*'
-				$$.tipo = tipo_resultante;
+				if ($$.nivelAcesso < v.numDimensoes) {
+					$$.tipo = "__vetor";
+					$$.label = "((struct Vetor*)" + v.id + ".data)[" + $3.label + "]";
+				} else {
+					$$.tipo = v.tipo;
+					$$.label = "((" + v.tipo + "*)" + v.id + ".data)[" + $3.label + "]";
+				}
 			}
 			| acesso_vetor T_LBRACKET E T_RBRACKET
 			{
-				// 1. '$1' já contém os dados do acesso anterior (ex: 'matriz[i]').
+				// Passa o nome da variável original adiante
+				$$.id_original = $1.id_original;
+				// Usa o nome original para buscar os dados da variável (NÃO $1.label)
+				Variavel v = getVariavel($$.id_original); 
 
-				// 2. Validação Semântica
-				if ($1.tipo.find("*") == string::npos) {
-					yyerror("tentativa de indexar uma variável que não é vetor/ponteiro.");
-				}
-				if ($3.tipo != "int") {
-					yyerror("índice do vetor deve ser um inteiro.");
-				}
+				if ($1.tipo != "__vetor") { yyerror("Tentativa de acesso multidimensional em um não-vetor."); }
+				if ($3.tipo != "int") { yyerror("O índice de um vetor deve ser um inteiro."); }
 
-				// 3. Geração de Código
-				// Concatena o novo acesso ao label anterior.
-				$$.label = $1.label + "[" + $3.label + "]";
-
-				// A tradução acumula o código gerado.
 				$$.traducao = $1.traducao + $3.traducao;
+				$$.nivelAcesso = $1.nivelAcesso + 1;
 
-				// 4. Determina o tipo resultante. Se era int**, agora é int*.
-				string tipo_resultante = $1.tipo;
-				tipo_resultante.pop_back(); // Remove um '*'
-				$$.tipo = tipo_resultante;
+				if ($$.nivelAcesso < v.numDimensoes) {
+					$$.tipo = "__vetor";
+					// O $1.label aqui está correto, pois ele contém o acesso anterior
+					$$.label = "((struct Vetor*)" + $1.label + ".data)[" + $3.label + "]";
+				} else {
+					$$.tipo = v.tipo;
+					$$.label = "((" + v.tipo + "*)" + $1.label + ".data)[" + $3.label + "]";
+				}
 			}
-			;
+
+		;
 OPTIONAL:   E
 			{
 				if ($1.tipo != "char*") {

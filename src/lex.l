@@ -66,6 +66,7 @@ BOOL T|F
 
 "print"     { nColuna += yyleng; return TK_PRINT; }
 "input"     { nColuna += yyleng; return TK_INPUT; }
+"append"    { nColuna += yyleng; return TK_APPEND; }
 
 {ID}		{ nColuna += yyleng; yylval.label = yytext; return TK_ID; }
 
