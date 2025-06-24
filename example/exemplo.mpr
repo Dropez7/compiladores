@@ -1,5 +1,9 @@
 func main() {
-    foo = "a"
-    bar = "b"
-    print(foo + bar)
+    int matriz[3][4][6];
+    matriz[0][1][2] = 100;
+
+    float f;
+    f = 5.5;
+    matriz[1][2][3] = f;
+    print(matriz[1][2][3]);
 }

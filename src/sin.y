@@ -49,7 +49,7 @@ void genCodigo(string traducao) {
 %token TK_BREAK TK_CONTINUE
 %token TK_WHEELDECIDE TK_OPTION
 %token TK_FUNCAO TK_RETURN TK_NULL
-
+%token T_LBRACKET T_RBRACKET
 
 %start S
 
@@ -719,6 +719,159 @@ E 			: BLOCO
 					yyerror("tipo de retorno errado (esperado: " + getReturn() + ", recebido: " + $2.tipo + ")");
 				}
 				$$.traducao = $2.traducao + "\treturn " + $2.label + ";\n";
+			}
+			// Arrays e Vetores - Estáticos
+			| TK_TIPO TK_ID lista_dimensoes
+			{
+				string nome_var = $2.label;
+				string tipo_base = ($1.tipo == "string") ? "char" : $1.tipo;
+
+				// define tipo como int*, int**, etc.
+				string tipo_var = tipo_base + string($3.dimensoes.size(), '*');
+
+				// calcula o total de elementos para eventual inicialização
+				int total_size = 1;
+				string tamanho_str = "";
+				for (size_t i = 0; i < $3.dimensoes.size(); ++i) {
+					total_size *= $3.dimensoes[i];
+					tamanho_str += (i == 0 ? "" : "*") + to_string($3.dimensoes[i]);
+				}
+
+				declararVariavel(nome_var, tipo_var, tamanho_str);
+
+				Variavel v = getVariavel(nome_var);
+
+				string initCode = gerarAlocacaoRecursiva(v.id, tipo_base, $3.dimensoes);
+
+				$$ = $2;
+				$$.traducao = initCode;
+			}
+			| acesso_vetor
+			| acesso_vetor '=' E {
+				 
+				// O tipo do elemento do vetor (ex: "int")
+				string tipo_destino = $1.tipo; 
+				
+				// O tipo da expressão à direita (ex: "int" ou "float")
+				string tipo_origem = $3.tipo; 
+				
+				// A variável temporária ou constante da expressão (ex: "t10" ou "100")
+				string rhs_label = $3.label;
+
+				// Se os tipos são diferentes, verifica se a conversão implícita é possível
+				if (tipo_destino != tipo_origem)
+				{
+					// Usa a função que você já tem em utils.hpp
+					if (checkIsPossible(tipo_destino, tipo_origem))
+					{
+						// Adiciona um cast na geração do código, se necessário
+						rhs_label = "(" + tipo_destino + ") " + $3.label;
+					}
+					else
+					{
+						yyerror("atribuição incompatível (esperando " + tipo_destino + ", recebeu " + tipo_origem + ")");
+					}
+				}
+
+				// 2. Geração de Código
+				// A tradução final é:
+				// - O código para calcular os índices (já em $1.traducao)
+				// - O código para calcular a expressão (já em $3.traducao)
+				// - A nova linha de atribuição
+				$$.traducao = $1.traducao + $3.traducao + "\t" + $1.label + " = " + rhs_label + ";\n";
+			}
+
+			| TK_TIPO TK_ID T_LBRACKET T_RBRACKET ';' // Adicionei o ';' que provavelmente faltava
+			{
+				// 1. O tipo base é o que vem do token (ex: "int")
+				string tipo_base = $1.label;
+				declararVariavel($2.label, tipo_base, "");
+
+				// 2. Busca a variável que acabamos de criar e a marca como dinâmica
+				Variavel& v = pilha_escopos.back()[$2.label];
+				v.ehDinamico = true;
+
+				// 3. Adiciona a DEFINIÇÃO da struct Vetor ao cabeçalho (APENAS UMA VEZ)
+				if (!definicao_vetor_impressa) {
+					cabecalho_global += "struct Vetor {\n";
+					cabecalho_global += "\tvoid* data;\n";
+					cabecalho_global += "\tint tamanho;\n";
+					cabecalho_global += "\tint capacidade;\n";
+					cabecalho_global += "\tsize_t tam_elemento;\n};\n\n";
+					definicao_vetor_impressa = true;
+				}
+
+				// 4. Gera o código de INICIALIZAÇÃO da variável
+				$$.traducao = "\tstruct Vetor " + v.id + ";\n";
+				$$.traducao += "\t" + v.id + ".tamanho = 0;\n";
+				$$.traducao += "\t" + v.id + ".capacidade = 0;\n";
+				$$.traducao += "\t" + v.id + ".data = NULL;\n";
+				$$.traducao += "\t" + v.id + ".tam_elemento = sizeof(" + tipo_base + ");\n";
+			}
+			;
+
+lista_dimensoes: lista_dimensoes T_LBRACKET TK_NUM T_RBRACKET
+			{
+				$$ = $1;
+				int dim = stoi($3.label);
+				if (dim <= 0) yyerror("Dimensão inválida em vetor.");
+				$$.dimensoes.push_back(dim);
+			}
+			| T_LBRACKET TK_NUM T_RBRACKET
+			{
+				int dim = stoi($2.label);
+				if (dim <= 0) yyerror("Dimensão inválida em vetor.");
+				$$.dimensoes = vector<int>{dim};
+			};
+
+acesso_vetor:  TK_ID T_LBRACKET E T_RBRACKET
+			{
+				// 1. Busca a variável (ex: 'matriz') na tabela de símbolos.
+				Variavel v = getVariavel($1.label);
+
+				// 2. Validação Semântica
+				if (v.tipo.find("*") == string::npos) {
+					yyerror("variável '" + v.nome + "' não é um vetor/ponteiro.");
+				}
+				if ($3.tipo != "int") {
+					yyerror("índice do vetor deve ser um inteiro.");
+				}
+
+				// 3. Geração de Código
+				// O label resultante é o próprio acesso em C.
+				$$.label = v.id + "[" + $3.label + "]";
+
+				// A tradução acumula o código gerado pela expressão do índice.
+				$$.traducao = $1.traducao + $3.traducao;
+
+				// 4. Determina o tipo resultante. Se era int***, agora é int**.
+				string tipo_resultante = v.tipo;
+				tipo_resultante.pop_back(); // Remove um '*'
+				$$.tipo = tipo_resultante;
+			}
+			| acesso_vetor T_LBRACKET E T_RBRACKET
+			{
+				// 1. '$1' já contém os dados do acesso anterior (ex: 'matriz[i]').
+
+				// 2. Validação Semântica
+				if ($1.tipo.find("*") == string::npos) {
+					yyerror("tentativa de indexar uma variável que não é vetor/ponteiro.");
+				}
+				if ($3.tipo != "int") {
+					yyerror("índice do vetor deve ser um inteiro.");
+				}
+
+				// 3. Geração de Código
+				// Concatena o novo acesso ao label anterior.
+				$$.label = $1.label + "[" + $3.label + "]";
+
+				// A tradução acumula o código gerado.
+				$$.traducao = $1.traducao + $3.traducao;
+
+				// 4. Determina o tipo resultante. Se era int**, agora é int*.
+				string tipo_resultante = $1.tipo;
+				tipo_resultante.pop_back(); // Remove um '*'
+				$$.tipo = tipo_resultante;
 			}
 			;
 OPTIONAL:   E

@@ -8,12 +8,16 @@
 
 using namespace std;
 
+string cabecalho_global = "";
+bool definicao_vetor_impressa = false;
+
 struct atributos
 {
     string label;
     string tamanho;
     string traducao;
     string tipo;
+    vector<int> dimensoes; 
 };
 
 struct Variavel
@@ -22,6 +26,7 @@ struct Variavel
     string tipo;
     string id;
     string tamanho;
+    bool ehDinamico = false;
 };
 bool operator<(const Variavel& a, const Variavel& b)
 {
@@ -459,4 +464,42 @@ string genStringcmp() {
         "\treturn F;\n"
         "L2:\n"
         "\treturn T;\n}\n";
+}
+
+string gerarAlocacaoRecursiva(const string& id, const string& tipo_base, const vector<int>& dimensoes, int nivel = 0)
+{
+    if (dimensoes.empty()) return "";
+
+    string code;
+    string var_iter = genTempCode("int");
+
+    // malloc para o nível atual
+    string tam = to_string(dimensoes[nivel]);
+    string ptr_type = tipo_base + string(dimensoes.size() - nivel, '*');
+    string malloc_type = tipo_base + string(dimensoes.size() - nivel - 1, '*');
+
+    code += "\t" + id + " = (" + ptr_type + ") malloc(" + tam + " * sizeof(" + malloc_type + "));\n";
+
+
+
+
+    if (nivel + 1 < dimensoes.size()) {
+        string lbl_inicio = genLabel();
+        string lbl_fim = genLabel();
+        string cond = genTempCode("bool");
+
+        code += "\t" + var_iter + " = 0;\n";
+        code += lbl_inicio + ":\n";
+        code += "\t" + cond + " = (" + var_iter + " < " + tam + ");\n";
+        code += "\tif (!" + cond + ") goto " + lbl_fim + ";\n";
+
+        string inner = id + "[" + var_iter + "]";
+        code += gerarAlocacaoRecursiva(inner, tipo_base, dimensoes, nivel + 1);
+
+        code += "\t" + var_iter + " = " + var_iter + " + 1;\n";
+        code += "\tgoto " + lbl_inicio + ";\n";
+        code += lbl_fim + ":\n";
+    }
+
+    return code;
 }
