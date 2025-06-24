@@ -18,9 +18,16 @@ void genCodigo(string traducao) {
                   "#define F 0\n\n";
 
     // Adiciona a definição da "struct Vetor" que foi gerada pelo parser
-    codigo += structVetor;
+	if (vectorUsed) {
+		codigo += structVetor;
+	}
 
-    // Protótipos de Funções
+	// Declarações de structs
+	for (const string& def : structDef) {
+		codigo += def;
+	}
+
+	// Protótipos de Funções
     for (const Funcao& func : funcoes) {
         codigo += func.prototipo;
     }
@@ -29,16 +36,17 @@ void genCodigo(string traducao) {
     // Declarações de Variáveis Globais
     for (const Variavel& var : variaveis) {
         if (var.ehDinamico) {
-            // CORREÇÃO AQUI: Adicionado um espaço depois de "Vetor"
             codigo += "struct Vetor " + var.id + "; // " + var.nome + "\n";
         } else {
-            // Simplifiquei o else if/else, pois ambos faziam a mesma coisa
             codigo += var.tipo + " " + var.id + "; // " + var.nome + "\n";
         }
     }
     
     // Adiciona a função de comparação de string e o código traduzido
-    codigo += "\n" + genStringcmp() + "\n" + traducao;
+	if (strCompared) {
+		codigo += "\n" + genStringcmp();
+	}
+    codigo += "\n" + traducao;
     
     // Imprime o código final
     cout << codigo << endl;
@@ -55,7 +63,7 @@ void genCodigo(string traducao) {
 %token TK_SWITCH TK_DEFAULT
 %token TK_BREAK TK_CONTINUE
 %token TK_WHEELDECIDE TK_OPTION
-%token TK_FUNCAO TK_RETURN TK_NULL
+%token TK_FUNCAO TK_RETURN TK_NULL TK_STRUCT
 %token T_LBRACKET T_RBRACKET
 %token TK_APPEND
 
@@ -67,6 +75,7 @@ void genCodigo(string traducao) {
 %left '?'
 %left '^'
 %left TK_RELACIONAL
+%left '.'
 %left '+' '-'
 %left '*' '/'
 %right '~'
@@ -75,18 +84,52 @@ void genCodigo(string traducao) {
 
 %%
 
-S : 		FUNCOES
+S : 		DECLARACOES
 			{
 				genCodigo($1.traducao);
 			}
 			;
-FUNCOES  :  FUNCAO FUNCOES
+DECLARACOES  :  FUNCAO DECLARACOES
+			{
+				$$.traducao = $1.traducao + $2.traducao;
+			}
+			| STRUCT DECLARACOES
 			{
 				$$.traducao = $1.traducao + $2.traducao;
 			}
 			|
 			{
 				$$.traducao = "";
+			}
+			;
+STRUCT      : TK_STRUCT TK_ID '{' VAR_STRUCT '}'
+			{
+				declararStruct($2.label, $4.tipo);
+				structDef.push_back("struct " + $2.label + " {\n" + $4.traducao + "};\n\n");
+			}
+			;
+VAR_STRUCT   : TK_TIPO TK_ID ',' VAR_STRUCT
+			{
+				$$.traducao = "\t" + $1.tipo + " " + $2.label + ";\n" + $4.traducao;
+				$$.tipo = $1.tipo + " " + $2.label + " " + $4.tipo; // hack
+			}
+			| TK_ID TK_ID ',' VAR_STRUCT // struct dentro de struct
+			{
+				TipoStruct ts = getStruct($1.label);
+				$$.traducao = "\t" + ts.id + " " + $2.label + ";\n" + $4.traducao;
+				// A linha abaixo é a que foi corrigida
+				$$.tipo = split(ts.id, " ")[1] + " " + $2.label + " " + $4.tipo; 
+			}
+			| TK_TIPO TK_ID
+			{
+				$$.traducao = "\t" + $1.tipo + " " + $2.label + ";\n";
+				$$.tipo = $1.tipo + " " + $2.label;
+			}
+			| TK_ID TK_ID // struct dentro de struct
+			{
+				TipoStruct ts = getStruct($1.label);
+				$$.traducao = "\t" + ts.id + " " + $2.label + ";\n";
+				$$.tipo = split(ts.id, " ")[1] + " " + $2.label;
 			}
 			;
 FUNCAO:     TK_FUNCAO TK_MAIN '(' ')' { setReturn("main"); } BLOCO
@@ -425,9 +468,11 @@ E 			: BLOCO
 			{
 				$$.label = genTempCode("bool");
 				if ($1.tipo == "char*" && $3.tipo == "char*" && $2.label == "==") {
+					strCompared = true;
 					$$.traducao = $1.traducao + $3.traducao + 
 						"\t" + $$.label + " = stringcmp(" + $1.label + ", " + $3.label + ");\n";
 				} else if ($1.tipo == "char*" && $3.tipo == "char*" && $2.label == "!=") {
+					strCompared = true;
 					$$.traducao = $1.traducao + $3.traducao + 
 						"\t" + $$.label + " = stringcmp(" + $1.label + ", " + $3.label + ");\n" +
 						"\t" + $$.label + " = !" + $$.label + ";\n";
@@ -540,6 +585,35 @@ E 			: BLOCO
 				Variavel v = getVariavel($2.label);
 				$$.traducao = convertImplicit($2, $4, v);
 			}
+			// Foo A (Foo é um struct)
+			| TK_ID TK_ID
+			{
+				TipoStruct ts = getStruct($1.label);
+				declararVariavel($2.label, ts.id, "");
+			}
+			| OP_PONTO '=' E
+			{
+				Variavel v;
+				v.tipo = replace($1.tipo, "*", "");
+				v.id = "*" + $1.label;
+				$$.traducao = convertImplicit($1, $3, v);
+			}
+			| OP_PONTO
+			{
+				// Usando o membro de um struct como um R-value (ex: z = foo.c.x.y)
+				// Se o tipo for fundamental, precisamos carregar o valor em um temporário.
+				if (isDefaultType($1.tipo)) {
+					 $$.label = genTempCode($1.tipo);
+					 $$.traducao = $1.traducao + "\t" + $$.label + " = " + $1.label + ";\n";
+					 $$.tipo = $1.tipo;
+				} else {
+					 $$.tipo = replace($1.tipo, "*", "");
+					 $$.label = genTempCode($$.tipo);
+					 $$.traducao = $1.traducao + "\t" + $$.label + " = *" + $1.label + ";\n";
+				}
+			}
+			;
+			// A += B
 			| TK_ID TK_ABREVIADO E
 			{
 				Variavel v = getVariavel($1.label);
@@ -730,6 +804,7 @@ E 			: BLOCO
 			}
 			| TK_TIPO TK_ID lista_colchetes_vazios
 			{
+				vectorUsed = true;
 				string tipo_base = $1.label;
 				declararVariavel($2.label, tipo_base, "");
 
@@ -907,6 +982,58 @@ acesso_vetor:  TK_ID T_LBRACKET E T_RBRACKET
 			}
 			;
 			
+OP_PONTO    : TK_ID
+			{
+				// Caso base para o início de uma cadeia de acesso, ex: 'foo'
+				Variavel v = getVariavel($1.label);
+				$$.label = v.id;         // Identificador C para a variável, ex: t0
+				$$.tipo = v.tipo;         // Tipo da variável, ex: struct Foo
+				$$.traducao = "";         // Sem código de preparação para a variável base
+			}
+			| OP_PONTO '.' TK_ID
+			{
+				string lhs_type = $1.tipo;
+				bool is_lhs_pointer = (lhs_type.find("*") != string::npos);
+				string accessor = is_lhs_pointer ? "->" : ".";
+
+				string struct_name;
+				if(is_lhs_pointer) {
+					lhs_type.pop_back(); 
+				}
+				vector<string> parts = split(lhs_type, " ");
+				struct_name = (parts.size() > 1) ? parts[1] : parts[0];
+
+				TipoStruct ts = getStruct(struct_name);
+
+				Variavel member_attr;
+				bool found = false;
+				for (const Variavel& var : ts.atributos) {
+					if (var.id == $3.label) {
+						found = true;
+						member_attr = var;
+						break;
+					}
+				}
+				if (!found) {
+					yyerror("struct " + struct_name + " não possuí o campo " + $3.label);
+				}
+
+				// Lógica unificada: sempre obter um ponteiro para o membro
+				string member_type_name = member_attr.tipo;
+				string new_ptr_type;
+
+				if (!isDefaultType(member_type_name)) {
+					new_ptr_type = "struct " + member_type_name + "*";
+				} else {
+					new_ptr_type = member_type_name + "*";
+				}
+
+				$$.label = genTempCode(new_ptr_type); 
+				$$.tipo = new_ptr_type;
+				// Parênteses removidos e lógica unificada
+				$$.traducao = $1.traducao + "\t" + $$.label + " = &" + $1.label + accessor + member_attr.id + ";\n";
+			}
+		;
 OPTIONAL:   E
 			{
 				if ($1.tipo != "char*") {

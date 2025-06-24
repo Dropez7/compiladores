@@ -1,9 +1,21 @@
+struct foobar {
+    int x,
+    int y
+}
+
+struct bar {
+    foobar x,
+    float y
+}
+
+struct Foo {
+    int a,
+    float b,
+    bar c
+}
+
 func main() {
-    int v[][];
-    append(v, [10, 20, 30]);
-    append(v, [40, 50, 60]);
-    append(v, [70, 80, 90]);
-    print(v[0][1]);
-    print(v[1][2]);
-    print(v[2][0]);
+    Foo foo
+    foo.b = 10
+    print(foo.b * 2)
 }

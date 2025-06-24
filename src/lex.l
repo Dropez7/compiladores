@@ -41,11 +41,12 @@ BOOL T|F
 "func"     { nColuna += yyleng; return TK_FUNCAO; }
 "return"   { nColuna += yyleng; return TK_RETURN; }
 "null"     { nColuna += yyleng; return TK_NULL; }
+"struct"   { nColuna += yyleng; return TK_STRUCT; }
 {TIPO_VAR} { nColuna += yyleng; yylval.label = yytext; yylval.tipo = yytext; return TK_TIPO; }
 
 "["      { nColuna += yyleng; return T_LBRACKET; }
 "]"      { nColuna += yyleng; return T_RBRACKET; }
-[(){}[\]:;,]	{ nColuna += yyleng; return *yytext; }
+[(){}[\]:;,\.]	{ nColuna += yyleng; return *yytext; }
 
 [+\-*/]		{ nColuna += yyleng; yylval.label = yytext; return *yytext; }
 "++"|"--"    { nColuna += yyleng; yylval.label = yytext; return TK_UNARIO; }

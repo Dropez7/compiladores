@@ -8,7 +8,6 @@
 
 using namespace std;
 
-string structVetor = "struct Vetor {\n\tvoid* data;\n\tint tamanho;\n\tint capacidade;\n\tsize_t tam_elemento;\n};\n\n";
 
 struct atributos
 {
@@ -48,6 +47,15 @@ bool operator<(const Funcao& a, const Funcao& b)
     return a.id < b.id;
 }
 
+struct TipoStruct {
+    string id;
+    set<Variavel> atributos;
+};
+bool operator<(const TipoStruct& a, const TipoStruct& b)
+{
+    return a.id < b.id;
+}
+
 struct WDarg
 {
     string guards;
@@ -57,6 +65,7 @@ struct WDarg
     int nCLAUSES;
 };
 
+
 int yylex();
 int yyparse();
 int var_temp_qnt;
@@ -64,13 +73,18 @@ int label_qnt;
 int nLinha = 1;
 int nColuna = 1;
 bool wdUsed = false;
+bool strCompared = false;
+bool vectorUsed = false;
 bool canBreak = false;
 bool canContinue = false;
 bool hasReturned = false;
 string returnType;
+string structVetor = "struct Vetor {\n\tvoid* data;\n\tint tamanho;\n\tint capacidade;\n\tsize_t tam_elemento;\n};\n\n";
 void yyerror(string);
 set<Variavel> variaveis;
 set<Funcao> funcoes;
+set<TipoStruct> structs;
+vector<string> structDef;
 set<string> free_vars;
 vector<map<string, Variavel>> pilha_escopos;
 vector<WDarg> pilha_wd;
@@ -243,6 +257,51 @@ Funcao getFuncao(const string& nome_funcao, const string& tipos)
     return f_erro;
 }
 
+void declararStruct(const string& nome_struct, const string& atributos)
+{
+    for (const TipoStruct& ts : structs)
+    {
+        if (ts.id == nome_struct)
+        {
+            yyerror("Estrutura '" + nome_struct + "' já declarada.");
+            return;
+        }
+    }
+    TipoStruct ts;
+    ts.id = "struct " + nome_struct;
+    vector<string> attrs = split(atributos, " ");
+    for (int i = 0; i < attrs.size(); i += 2)
+    {
+        Variavel v;
+        v.tipo = attrs[i];
+        v.id = attrs[i + 1];
+        for (const Variavel& var : ts.atributos) {
+            if (var.id == v.id) {
+                yyerror("Múltiplos atributos '" + v.id + "' na estrutura '" + nome_struct + "'.");
+                return;
+            }
+        }
+        ts.atributos.insert(v);
+    }
+    structs.insert(ts);
+}
+
+TipoStruct getStruct(const string& nome_struct)
+{
+    string nome = "struct " + nome_struct;
+    for (const TipoStruct& ts : structs)
+    {
+        if (ts.id == nome)
+        {
+            return ts;
+        }
+    }
+    yyerror("Estrutura '" + nome_struct + "' não encontrada.");
+    TipoStruct ts_erro;
+    ts_erro.id = nome_struct;
+    return ts_erro;
+}
+
 void setReturn(string type) {
     returnType = type;
     if (type == "void" || type == "main") {
@@ -325,7 +384,12 @@ void delWDargs()
 
 void makeOp(atributos& $$, atributos $1, atributos $2, atributos $3)
 {
-    $$.label = genTempCode("int");
+    if ($1.tipo == $2.tipo) {
+        $$.label = genTempCode($1.tipo);
+    }
+    else {
+        $$.label = genTempCode("float");
+    }
     if ($1.tipo == "bool")
     {
         yyerror("operação indisponível para tipo " + $1.tipo);
@@ -394,6 +458,10 @@ bool isInteger(const string& s) {
         if (!std::isdigit(s[i])) return false;
     }
     return true;
+}
+
+bool isDefaultType(const string& tipo) {
+    return tipo == "int" || tipo == "float" || tipo == "char*" || tipo == "bool";
 }
 
 string zerarVetor(string id, int n)
@@ -487,14 +555,15 @@ string append_code(string vet_id, string tipo_base, string val_label) {
     code += "\t" + vet_id + ".data = realloc(" + vet_id + ".data, " + nova_capacidade + " * " + vet_id + ".tam_elemento);\n";
     code += "\t" + vet_id + ".capacidade = " + nova_capacidade + ";\n";
     code += l_realloc + ":\n";
-    
+
     // Diferencia se estamos adicionando um valor (int, float) ou outra struct Vetor
     if (tipo_base == "struct Vetor") {
         code += "\t((struct Vetor*)" + vet_id + ".data)[" + vet_id + ".tamanho] = " + val_label + ";\n";
-    } else {
+    }
+    else {
         code += "\t((" + tipo_base + "*)" + vet_id + ".data)[" + vet_id + ".tamanho] = " + val_label + ";\n";
     }
-    
+
     code += "\t" + vet_id + ".tamanho = " + vet_id + ".tamanho + 1;\n";
     return code;
 }
