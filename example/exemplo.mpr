@@ -1,17 +1,5 @@
 func main() {
-
-    int v[][];
-
-    append(v, [10, 20, 30]);
-
-    append(v, [40, 50, 60]);
-
-    append(v, [70, 80, 90]);
-
-    print(v[0][1]);
-
-    print(v[1][2]);
-
-    print(v[2][0]);
-
+    int v[]
+    append(v, 1)
+    print(v[0])
 }

@@ -943,54 +943,50 @@ lista_elementos: E
 			}
 			;
 			
-acesso_vetor:  TK_ID T_LBRACKET E T_RBRACKET
+acesso_vetor: TK_ID T_LBRACKET E T_RBRACKET
 			{
-				Variavel v = getVariavel($1.label); // Busca a variável original
+				Variavel v = getVariavel($1.label);
 				if (!v.ehDinamico) { yyerror("A variável '" + v.nome + "' não é um vetor dinâmico."); }
 				if ($3.tipo != "int") { yyerror("O índice de um vetor deve ser um inteiro."); }
 
-				$$.id_original = $1.label; 
-				
-				$$.traducao = $1.traducao + $3.traducao;
+				$$.id_original = $1.label;
 				$$.nivelAcesso = 1;
 
 				if ($$.nivelAcesso < v.numDimensoes) {
 					$$.tipo = "__vetor";
-					$$.label = genTempCode("struct Vetor"); 
+					$$.label = genTempCode("struct Vetor");
 					$$.traducao = $1.traducao + $3.traducao;
 					$$.traducao += "\t" + $$.label + " = *(((struct Vetor*)" + v.id + ".data) + " + $3.label + ");\n";
 				} else {
 					$$.tipo = v.tipo;
 					$$.label = genTempCode(v.tipo);
 					$$.traducao = $1.traducao + $3.traducao;
-					$$.traducao += "\t" + $$.label + " = * (( " + v.tipo + "* )" + v.id + ".data) + " + $3.label + ");\n";
+					$$.traducao += "\t" + $$.label + " = *((( " + v.tipo + "* )" + v.id + ".data) + " + $3.label + ");\n";
 				}
 			}
 			| acesso_vetor T_LBRACKET E T_RBRACKET
 			{
 				$$.id_original = $1.id_original;
-				Variavel v = getVariavel($$.id_original); 
-
+				Variavel v = getVariavel($$.id_original);
 				if ($1.tipo != "__vetor") { yyerror("Tentativa de acesso multidimensional em um não-vetor."); }
 				if ($3.tipo != "int") { yyerror("O índice de um vetor deve ser um inteiro."); }
 
-				$$.traducao = $1.traducao + $3.traducao;
 				$$.nivelAcesso = $1.nivelAcesso + 1;
-				string acesso_anterior = $1.label;
+				string acesso_anterior_label = $1.label;
 
 				if ($$.nivelAcesso < v.numDimensoes) {
 					$$.tipo = "__vetor";
 					$$.label = genTempCode("struct Vetor");
 					$$.traducao = $1.traducao + $3.traducao;
-					$$.traducao += "\t" + $$.label + " = *(((struct Vetor*)" + acesso_anterior + ".data) + " + $3.label + ");\n";
+					$$.traducao += "\t" + $$.label + " = *(((struct Vetor*)" + acesso_anterior_label + ".data) + " + $3.label + ");\n";
 				} else {
 					$$.tipo = v.tipo;
 					$$.label = genTempCode(v.tipo);
 					$$.traducao = $1.traducao + $3.traducao;
-					$$.traducao += "\t" + $$.label + " = *((( " + v.tipo + "* )" + acesso_anterior + ".data) + " + $3.label + ");\n";
+					$$.traducao += "\t" + $$.label + " = *((( " + v.tipo + "* )" + acesso_anterior_label + ".data) + " + $3.label + ");\n";
 				}
 			}
-			;
+		;
 			
 OP_PONTO    : TK_ID
 			{
