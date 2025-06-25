@@ -828,7 +828,34 @@ E 			: BLOCO
 				}
 				$$.traducao += "\t" + v.id + ".tam_elemento = sizeof(" + sizeof_arg + ");\n";
 			}
+			// Foo A[] (Foo é um struct)
+			| TK_ID TK_ID lista_colchetes_vazios
+			{
+				vectorUsed = true;
+				TipoStruct ts = getStruct($1.label);
+				string tipo_base = ts.id;
+				declararVariavel($2.label, tipo_base, "");
 
+				Variavel& v = pilha_escopos.back()[$2.label];
+				v.ehDinamico = true;
+				v.numDimensoes = $3.nivelAcesso;
+				variaveis.erase(v); 
+				variaveis.insert(v);
+
+				$$.traducao = "\tstruct Vetor " + v.id + ";\n";
+				$$.traducao += "\t" + v.id + ".tamanho = 0;\n";
+				$$.traducao += "\t" + v.id + ".capacidade = 0;\n";
+				$$.traducao += "\t" + v.id + ".data = NULL;\n";
+				string sizeof_arg;
+				if (v.numDimensoes > 1) {
+					// Se for 2D ou mais, o elemento é outro vetor.
+					sizeof_arg = "struct Vetor";
+				} else {
+					// Se for 1D, o elemento é do tipo base.
+					sizeof_arg = tipo_base;
+				}
+				$$.traducao += "\t" + v.id + ".tam_elemento = sizeof(" + sizeof_arg + ");\n";
+			}
 			| acesso_vetor '=' E 
 			{
 				string tipo_destino = $1.tipo; 
@@ -995,6 +1022,10 @@ OP_PONTO    : TK_ID
 				$$.label = v.id;         // Identificador C para a variável, ex: t0
 				$$.tipo = v.tipo;         // Tipo da variável, ex: struct Foo
 				$$.traducao = "";         // Sem código de preparação para a variável base
+			}
+			| acesso_vetor
+			{
+				$$ = $1; // Repassa os atributos do acesso ao vetor.
 			}
 			| OP_PONTO '.' TK_ID
 			{

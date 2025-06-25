@@ -1,5 +1,11 @@
+struct s1 {
+    int x
+}
+
 func main() {
-    int v[]
-    append(v, 1)
-    print(v[0])
+    s1 v1[];
+    s1 v2;
+    v2.x = 15;
+    append(v1, v2)
+    print(v1[0].x)
 }
