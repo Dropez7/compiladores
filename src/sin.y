@@ -851,17 +851,21 @@ E 			: BLOCO
 			}
 			| TK_APPEND '(' TK_ID ',' E ')'
 			{
-				Variavel v = getVariavel($3.label);
-				if (!v.ehDinamico) { yyerror("O primeiro argumento de 'append' deve ser um vetor."); }
+				// Agora $3 é o TK_ID do vetor e $5 é a expressão do valor.
+				// O nome original do vetor está em $3.label.
+				Variavel v = getVariavel($3.label); // <-- AGORA FUNCIONA CORRETAMENTE!
+				if (!v.ehDinamico) { 
+					yyerror("O primeiro argumento de 'append' deve ser um vetor dinâmico.");
+				}
 
 				// CASO 1: append(matriz, [1,2,3]) -> Adicionando um vetor a uma matriz
 				if ($5.tipo == "__vetor") { 
 					if (v.numDimensoes != 2) { 
 						yyerror("Tentativa de adicionar um vetor a uma matriz que não é 2D."); 
 					}
-					$$.traducao = $5.traducao;
-					$$.traducao += append_code(v.id, "struct Vetor", $5.label);
-
+					
+					$$.traducao = $5.traducao; // Código que cria e preenche o vetor temporário
+					$$.traducao += append_code(v.id, "struct Vetor", $5.label); // Adiciona a struct
 				} 
 				// CASO 2: append(vetor_1d, 42) -> Adicionando um valor a um vetor 1D
 				else { 
@@ -869,7 +873,7 @@ E 			: BLOCO
 						yyerror("Tentativa de adicionar um valor simples a uma matriz. Use a sintaxe de lista []."); 
 					}
 					if (v.tipo != $5.tipo && !checkIsPossible(v.tipo, $5.tipo)) { 
-						yyerror("Tipo do valor incompatível com o tipo do vetor.");
+						yyerror("Tipo do valor '" + $5.label + "' incompatível com o tipo do vetor '" + v.nome + "'.");
 					}
 					
 					string val_label = $5.label;
@@ -945,7 +949,6 @@ acesso_vetor:  TK_ID T_LBRACKET E T_RBRACKET
 				if (!v.ehDinamico) { yyerror("A variável '" + v.nome + "' não é um vetor dinâmico."); }
 				if ($3.tipo != "int") { yyerror("O índice de um vetor deve ser um inteiro."); }
 
-				// Salva o nome da variável original para os próximos acessos
 				$$.id_original = $1.label; 
 				
 				$$.traducao = $1.traducao + $3.traducao;
@@ -953,17 +956,19 @@ acesso_vetor:  TK_ID T_LBRACKET E T_RBRACKET
 
 				if ($$.nivelAcesso < v.numDimensoes) {
 					$$.tipo = "__vetor";
-					$$.label = "((struct Vetor*)" + v.id + ".data)[" + $3.label + "]";
+					$$.label = genTempCode("struct Vetor"); 
+					$$.traducao = $1.traducao + $3.traducao;
+					$$.traducao += "\t" + $$.label + " = *(((struct Vetor*)" + v.id + ".data) + " + $3.label + ");\n";
 				} else {
 					$$.tipo = v.tipo;
-					$$.label = "((" + v.tipo + "*)" + v.id + ".data)[" + $3.label + "]";
+					$$.label = genTempCode(v.tipo);
+					$$.traducao = $1.traducao + $3.traducao;
+					$$.traducao += "\t" + $$.label + " = * (( " + v.tipo + "* )" + v.id + ".data) + " + $3.label + ");\n";
 				}
 			}
 			| acesso_vetor T_LBRACKET E T_RBRACKET
 			{
-				// Passa o nome da variável original adiante
 				$$.id_original = $1.id_original;
-				// Usa o nome original para buscar os dados da variável (NÃO $1.label)
 				Variavel v = getVariavel($$.id_original); 
 
 				if ($1.tipo != "__vetor") { yyerror("Tentativa de acesso multidimensional em um não-vetor."); }
@@ -971,13 +976,18 @@ acesso_vetor:  TK_ID T_LBRACKET E T_RBRACKET
 
 				$$.traducao = $1.traducao + $3.traducao;
 				$$.nivelAcesso = $1.nivelAcesso + 1;
+				string acesso_anterior = $1.label;
 
 				if ($$.nivelAcesso < v.numDimensoes) {
 					$$.tipo = "__vetor";
-					$$.label = "((struct Vetor*)" + $1.label + ".data)[" + $3.label + "]";
+					$$.label = genTempCode("struct Vetor");
+					$$.traducao = $1.traducao + $3.traducao;
+					$$.traducao += "\t" + $$.label + " = *(((struct Vetor*)" + acesso_anterior + ".data) + " + $3.label + ");\n";
 				} else {
 					$$.tipo = v.tipo;
-					$$.label = "((" + v.tipo + "*)" + $1.label + ".data)[" + $3.label + "]";
+					$$.label = genTempCode(v.tipo);
+					$$.traducao = $1.traducao + $3.traducao;
+					$$.traducao += "\t" + $$.label + " = *((( " + v.tipo + "* )" + acesso_anterior + ".data) + " + $3.label + ");\n";
 				}
 			}
 			;
