@@ -113,30 +113,38 @@ STRUCT      : TK_STRUCT TK_ID '{' VAR_STRUCT '}'
 				structDef.push_back("struct " + $2.label + " {\n" + $4.traducao + "};\n\n");
 			}
 			;
-VAR_STRUCT   : TK_TIPO TK_ID ',' VAR_STRUCT
+VAR_STRUCT   : TK_TIPO TK_ID VET ',' VAR_STRUCT
 			{
-				$$.traducao = "\t" + $1.tipo + " " + $2.label + ";\n" + $4.traducao;
-				$$.tipo = $1.tipo + " " + $2.label + " " + $4.tipo; // hack
+				$$.traducao = "\t" + $1.tipo + " " + $2.label + ";\n" + $5.traducao;
+				$$.tipo = $1.tipo + " " + $2.label + " " + $5.tipo; // hack
 			}
-			| TK_ID TK_ID ',' VAR_STRUCT // struct dentro de struct
+			| TK_ID TK_ID VET ',' VAR_STRUCT // struct dentro de struct
 			{
 				TipoStruct ts = getStruct($1.label);
-				$$.traducao = "\t" + ts.id + " " + $2.label + ";\n" + $4.traducao;
+				$$.traducao = "\t" + ts.id + " " + $2.label + ";\n" + $5.traducao;
 				// A linha abaixo é a que foi corrigida
-				$$.tipo = split(ts.id, " ")[1] + " " + $2.label + " " + $4.tipo; 
+				$$.tipo = split(ts.id, " ")[1] + " " + $2.label + " " + $5.tipo; 
 			}
-			| TK_TIPO TK_ID
+			| TK_TIPO TK_ID VET
 			{
 				$$.traducao = "\t" + $1.tipo + " " + $2.label + ";\n";
 				$$.tipo = $1.tipo + " " + $2.label;
 			}
-			| TK_ID TK_ID // struct dentro de struct
+			| TK_ID TK_ID VET // struct dentro de struct
 			{
 				TipoStruct ts = getStruct($1.label);
 				$$.traducao = "\t" + ts.id + " " + $2.label + ";\n";
 				$$.tipo = split(ts.id, " ")[1] + " " + $2.label;
 			}
 			;
+VET         : lista_colchetes_vazios
+			{
+				yyerror("vetores não são permitidos dentro de structs");
+			}
+			|
+			{
+				$$.traducao = "";
+			}
 FUNCAO:     TK_FUNCAO TK_MAIN '(' ')' { setReturn("main"); } BLOCO
 			{
 				$$.traducao += "int main(void) {\n";

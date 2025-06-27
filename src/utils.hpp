@@ -349,6 +349,9 @@ void sairMetodo() {
 
 void declararStruct(const string& nome_struct, const string& atributos)
 {
+    if (nome_struct == "Vetor") {
+        yyerror("Nome de estrutura reservado");
+    }
     for (const TipoStruct& ts : structs)
     {
         if (ts.id == nome_struct)
