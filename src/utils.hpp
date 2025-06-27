@@ -14,8 +14,11 @@ struct atributos
     string label;
     string tamanho;
     string traducao;
+    string traducaoAlt;
     string tipo;
     int nivelAcesso = 0;
+    bool ehDinamico = false;
+    int numDimensoes = 0;
     string id_original;
 };
 

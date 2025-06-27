@@ -70,7 +70,6 @@ void genCodigo(string traducao) {
 %token TK_WHEELDECIDE TK_OPTION
 %token TK_FUNCAO TK_RETURN TK_NULL TK_STRUCT
 %token TK_BIND TK_THIS
-%token T_LBRACKET T_RBRACKET
 %token TK_APPEND
 
 %start S
@@ -229,16 +228,19 @@ CALL_ARGS   : E ',' CALL_ARGS
 			{
 				$$.tipo = $1.tipo + " " + $3.tipo; // multiplos tipos
 				$$.traducao = $1.label + ", " + $3.traducao;
+				$$.traducaoAlt = $1.traducao + $3.traducaoAlt;
 			}
 			| E
 			{
 				$$.tipo = $1.tipo;
 				$$.traducao = $1.label + ");\n";
+				$$.traducaoAlt = $1.traducao;
 			}
 			|
 			{
 				$$.tipo = "";
 				$$.traducao = ");\n";
+				$$.traducaoAlt = "";
 			}
 BLOCO : '{' { entrar_escopo(); } COMANDOS '}'
 			{
@@ -732,33 +734,65 @@ E 			: BLOCO
 
 				Funcao f = getFuncao($1.label, $3.tipo);
 				if (f.tipo_retorno != "void") {
+					
 					$$.label = genTempCode(f.tipo_retorno);
-					$$.traducao = "\t" + $$.label + " = " + f.id + "(" + $3.traducao;
+					$$.traducao = $3.traducaoAlt + "\t" + $$.label + " = " + f.id + "(" + $3.traducao;
 					$$.tipo = f.tipo_retorno;
 				} else {
 					$$.tipo = "void";
-					$$.traducao = "\t" + f.id + "(" + $3.traducao;
+					$$.traducao = $3.traducaoAlt + "\t" + f.id + "(" + $3.traducao;
 				}
 			}
-			| OP_PONTO '.' TK_ID '(' CALL_ARGS ')'
+			| OP_PONTO '.' METHOD '(' CALL_ARGS ')'
 			{
-				Variavel v = getVariavel($1.label, true);
-
+				Variavel v = getVariavel($1.label, true); // <-- AGORA FUNCIONA CORRETAMENTE!
 				if (v.id == "<error_id>") {
-					v.id = "*" + $1.label;
+					v.id = ($3.label == "append") ? $1.label : "*" + $1.label;
 					v.tipo = replace($1.tipo, "*", "");
+					v.ehDinamico = $1.ehDinamico;
+					v.numDimensoes = $1.numDimensoes;
 				}
-				
-				Metodo m = getMetodo($3.label, v.tipo, $5.tipo);
-				$5.traducao = ($5.traducao == ");\n") ? v.id + $5.traducao : v.id + ", " + $5.traducao;
-				
-				if (m.tipo_retorno != "void") {
-					$$.label = genTempCode(m.tipo_retorno);
-					$$.traducao = $1.traducao + "\t" + $$.label + " = " + m.id + "(" + $5.traducao;
-					$$.tipo = m.tipo_retorno;
-				} else {
-					$$.tipo = "void";
-					$$.traducao = $1.traducao + "\t" + m.id + "(" +  $5.traducao;
+				if ($3.label == "append") {
+					if (!v.ehDinamico) { 
+						yyerror("O primeiro argumento de 'append' deve ser um vetor dinâmico.");
+					}
+
+					// CASO 1: append(matriz, [1,2,3]) -> Adicionando um vetor a uma matriz
+					if ($5.tipo == "__vetor") { 
+						if (v.numDimensoes != 2) { 
+							yyerror("Tentativa de adicionar um vetor a uma matriz que não é 2D."); 
+						}
+						
+						$$.traducao = $5.traducaoAlt; // Código que cria e preenche o vetor temporário
+						$$.traducao += append_code(v.id, "struct Vetor", $5.label); // Adiciona a struct
+					} 
+					// CASO 2: append(vetor_1d, 42) -> Adicionando um valor a um vetor 1D
+					else { 
+						if (v.numDimensoes != 1) { 
+							yyerror("Tentativa de adicionar um valor simples a uma matriz. Use a sintaxe de lista []."); 
+						}
+						if (v.tipo != $5.tipo && !checkIsPossible(v.tipo, $5.tipo)) { 
+							yyerror("Tipo do valor '" + $5.label + "' incompatível com o tipo do vetor '" + v.nome + "'.");
+						}
+						
+						string val_label = $5.label;
+						if (v.tipo != $5.tipo) { val_label = "(" + v.tipo + ")" + val_label; }
+
+						$$.traducao = $5.traducaoAlt;
+						$$.traducao += append_code(v.id, v.tipo, val_label);
+					}
+				} else {				
+					Metodo m = getMetodo($3.label, v.tipo, $5.tipo);
+					$5.traducao = ($5.traducao == ");\n") ? v.id + $5.traducao : v.id + ", " + $5.traducao;
+					
+					if (m.tipo_retorno != "void") {
+						$$.label = genTempCode(m.tipo_retorno);
+						$$.traducao = $1.traducao + "\t" + $$.label + " = " + m.id + "(" + $5.traducao;
+						$$.tipo = m.tipo_retorno;
+					} else {
+						$$.tipo = "void";
+						$$.traducao = $1.traducao + $5.traducaoAlt + "\t" + m.id + "(" +  $5.traducao;
+					}
 				}
 			}
 			// int A = input()
@@ -941,60 +975,32 @@ E 			: BLOCO
 
 				$$.traducao = $1.traducao + $3.traducao + "\t" + $1.label + " = " + rhs_label + ";\n";
 			}
-			| TK_APPEND '(' TK_ID ',' E ')'
-			{
-				// Agora $3 é o TK_ID do vetor e $5 é a expressão do valor.
-				// O nome original do vetor está em $3.label.
-				Variavel v = getVariavel($3.label); // <-- AGORA FUNCIONA CORRETAMENTE!
-				if (!v.ehDinamico) { 
-					yyerror("O primeiro argumento de 'append' deve ser um vetor dinâmico.");
-				}
-
-				// CASO 1: append(matriz, [1,2,3]) -> Adicionando um vetor a uma matriz
-				if ($5.tipo == "__vetor") { 
-					if (v.numDimensoes != 2) { 
-						yyerror("Tentativa de adicionar um vetor a uma matriz que não é 2D."); 
-					}
-					
-					$$.traducao = $5.traducao; // Código que cria e preenche o vetor temporário
-					$$.traducao += append_code(v.id, "struct Vetor", $5.label); // Adiciona a struct
-				} 
-				// CASO 2: append(vetor_1d, 42) -> Adicionando um valor a um vetor 1D
-				else { 
-					if (v.numDimensoes != 1) { 
-						yyerror("Tentativa de adicionar um valor simples a uma matriz. Use a sintaxe de lista []."); 
-					}
-					if (v.tipo != $5.tipo && !checkIsPossible(v.tipo, $5.tipo)) { 
-						yyerror("Tipo do valor '" + $5.label + "' incompatível com o tipo do vetor '" + v.nome + "'.");
-					}
-					
-					string val_label = $5.label;
-					if (v.tipo != $5.tipo) { val_label = "(" + v.tipo + ")" + val_label; }
-
-					$$.traducao = $5.traducao;
-					$$.traducao += append_code(v.id, v.tipo, val_label);
-				}
-			}
-			
 			| acesso_vetor 
 			| inicializacao_lista {
 				$$ = $1; // Apenas repassa os atributos.
 			}
 			;
-lista_colchetes_vazios: T_LBRACKET T_RBRACKET
+lista_colchetes_vazios: '[' ']'
 			{
 				// Caso base: encontrou o primeiro []. O nível/dimensão é 1.
 				$$.nivelAcesso = 1;
 			}
-			| lista_colchetes_vazios T_LBRACKET T_RBRACKET
+			| lista_colchetes_vazios '[' ']'
 			{
 				// Caso recursivo: encontrou mais um []. Incrementa o contador.
 				$$.nivelAcesso = $1.nivelAcesso + 1;
 			}
 			;
-
+METHOD      : TK_ID
+			{
+				$$ = $1;
+			}
+			| TK_APPEND
+			{
+				$$.label = "append";
+			}
 inicializacao_lista:
-			T_LBRACKET lista_elementos T_RBRACKET
+			'[' lista_elementos ']'
 			{
 				$$ = $2;
 				$$.tipo = "__vetor"; 
@@ -1035,7 +1041,7 @@ lista_elementos: E
 			}
 			;
 			
-acesso_vetor: TK_ID T_LBRACKET E T_RBRACKET
+acesso_vetor: TK_ID '[' E ']'
 			{
 				Variavel v = getVariavel($1.label);
 				if (!v.ehDinamico) { yyerror("A variável '" + v.nome + "' não é um vetor dinâmico."); }
@@ -1056,7 +1062,7 @@ acesso_vetor: TK_ID T_LBRACKET E T_RBRACKET
 					$$.traducao += "\t" + $$.label + " = *((( " + v.tipo + "* )" + v.id + ".data) + " + $3.label + ");\n";
 				}
 			}
-			| acesso_vetor T_LBRACKET E T_RBRACKET
+			| acesso_vetor '[' E ']'
 			{
 				$$.id_original = $1.id_original;
 				Variavel v = getVariavel($$.id_original);
@@ -1086,6 +1092,8 @@ OP_PONTO    : TK_ID
 				Variavel v = getVariavel($1.label);
 				$$.label = v.id;         // Identificador C para a variável, ex: t0
 				$$.tipo = v.tipo;         // Tipo da variável, ex: struct Foo
+				$$.ehDinamico = v.ehDinamico;
+				$$.numDimensoes = v.numDimensoes;
 				$$.traducao = "";         // Sem código de preparação para a variável base
 			}
 			| TK_THIS

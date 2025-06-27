@@ -46,8 +46,6 @@ BOOL T|F
 "struct"   { nColuna += yyleng; return TK_STRUCT; }
 {TIPO_VAR} { nColuna += yyleng; yylval.label = yytext; yylval.tipo = yytext; return TK_TIPO; }
 
-"["      { nColuna += yyleng; return T_LBRACKET; }
-"]"      { nColuna += yyleng; return T_RBRACKET; }
 [(){}[\]:;,\.]	{ nColuna += yyleng; return *yytext; }
 
 [+\-*/]		{ nColuna += yyleng; yylval.label = yytext; return *yytext; }
