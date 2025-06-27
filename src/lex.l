@@ -39,6 +39,8 @@ BOOL T|F
 "switch"   { nColuna += yyleng; canBreak = true; return TK_SWITCH; }
 
 "func"     { nColuna += yyleng; return TK_FUNCAO; }
+"bind"     { nColuna += yyleng; return TK_BIND; }
+"this"     { nColuna += yyleng; yylval.label = yytext; return TK_THIS; }
 "return"   { nColuna += yyleng; return TK_RETURN; }
 "null"     { nColuna += yyleng; return TK_NULL; }
 "struct"   { nColuna += yyleng; return TK_STRUCT; }

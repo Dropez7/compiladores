@@ -1,11 +1,14 @@
-struct s1 {
+bind int foo() {
+    
+    print(this);
+}
+
+struct bar {
     int x
 }
 
 func main() {
-    s1 v1[];
-    s1 v2;
-    v2.x = 15;
-    append(v1, v2)
-    print(v1[0].x)
+    bar foo
+    foo.x = 10
+    foo.x.foo()
 }

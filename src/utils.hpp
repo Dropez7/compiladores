@@ -47,6 +47,20 @@ bool operator<(const Funcao& a, const Funcao& b)
     return a.id < b.id;
 }
 
+struct Metodo
+{
+    string nome;
+    string prototipo;
+    string tipo_retorno;
+    string parametros;
+    string id;
+    string tipo_objeto; // tipo do objeto que chama o método
+};
+bool operator<(const Metodo& a, const Metodo& b)
+{
+    return a.id < b.id;
+}
+
 struct TipoStruct {
     string id;
     set<Variavel> atributos;
@@ -78,11 +92,14 @@ bool vectorUsed = false;
 bool canBreak = false;
 bool canContinue = false;
 bool hasReturned = false;
+bool inMetodo = false;
 string returnType;
 string structVetor = "struct Vetor {\n\tvoid* data;\n\tint tamanho;\n\tint capacidade;\n\tsize_t tam_elemento;\n};\n\n";
+string tipoMetodo;
 void yyerror(string);
 set<Variavel> variaveis;
 set<Funcao> funcoes;
+set<Metodo> metodos;
 set<TipoStruct> structs;
 vector<string> structDef;
 set<string> free_vars;
@@ -129,6 +146,29 @@ void genPrototipo(Funcao& f)
     }
 
     f.prototipo = f.tipo_retorno + " " + f.id + "(" + args + ");\n";
+}
+
+// gera as variáveis temporárias
+string genTempCode(string tipo)
+{
+    if (pilha_escopos.empty())
+    {
+        yyerror("Erro Critico: Nao ha escopo ativo para declarar a variavel temporaria.");
+    }
+    if (tipo == "string")
+    {
+        tipo = "char*";
+    }
+    map<string, Variavel>& escopo_atual = pilha_escopos.back();
+
+    Variavel v;
+    v.nome = to_string(var_temp_qnt);
+    v.tipo = tipo;
+    v.id = genId();
+    variaveis.insert(v);
+
+    escopo_atual[v.nome] = v;
+    return v.id;
 }
 
 void entrar_escopo()
@@ -257,6 +297,53 @@ Funcao getFuncao(const string& nome_funcao, const string& tipos)
     return f_erro;
 }
 
+void declararMetodo(const atributos& $1, const string& tipo_objeto, const string& tipos, const string& retorno)
+{
+    for (const Metodo& met : metodos)
+    {
+        if (met.nome == $1.label && met.parametros == tipos && met.tipo_objeto == tipo_objeto)
+        {
+            yyerror("Método '" + $1.label + "' já declarado para o tipo '" + tipo_objeto + "'.");
+        }
+    }
+
+    Metodo m;
+    m.nome = $1.label;
+    m.tipo_retorno = retorno;
+    m.parametros = tipos;
+    m.id = genId();
+    m.tipo_objeto = tipo_objeto;
+    metodos.insert(m);
+}
+
+Metodo getMetodo(const string& nome_metodo, const string& tipo_objeto, const string& tipos)
+{
+    for (const Metodo& met : metodos)
+    {
+        if (met.nome == nome_metodo && met.parametros == tipos && met.tipo_objeto == tipo_objeto)
+        {
+            return met;
+        }
+    }
+    yyerror("Método '" + nome_metodo + "' com parâmetros do tipo '" + tipos + "' não encontrado para o tipo '" + tipo_objeto + "'.");
+    Metodo m_erro;
+    m_erro.nome = nome_metodo;
+    m_erro.tipo_retorno = "error_not_found";
+    m_erro.parametros = "";
+    m_erro.id = "<error_id>";
+    m_erro.tipo_objeto = "<error_object_type>";
+    return m_erro;
+}
+
+void entrarMetodo(string tipo) {
+    inMetodo = true;
+    tipoMetodo = tipo + "|" + genTempCode(tipo);
+}
+
+void sairMetodo() {
+    inMetodo = false;
+}
+
 void declararStruct(const string& nome_struct, const string& atributos)
 {
     for (const TipoStruct& ts : structs)
@@ -333,29 +420,6 @@ void updateTamanho(const string& nome_var, const string& novo_tamanho)
     {
         yyerror("Variável '" + nome_var + "' não encontrada no escopo atual.");
     }
-}
-
-// gera as variáveis temporárias
-string genTempCode(string tipo)
-{
-    if (pilha_escopos.empty())
-    {
-        yyerror("Erro Critico: Nao ha escopo ativo para declarar a variavel temporaria.");
-    }
-    if (tipo == "string")
-    {
-        tipo = "char*";
-    }
-    map<string, Variavel>& escopo_atual = pilha_escopos.back();
-
-    Variavel v;
-    v.nome = to_string(var_temp_qnt);
-    v.tipo = tipo;
-    v.id = genId();
-    variaveis.insert(v);
-
-    escopo_atual[v.nome] = v;
-    return v.id;
 }
 
 void genWDargs()
@@ -545,7 +609,7 @@ string genStringcmp() {
 // Função auxiliar que gera o código C para a operação append
 // usando if/goto e aritmética de ponteiros.
 string append_code(string vet_id, string tipo_base, string val_label) {
-    
+
     // --- Setup: Nomes para variáveis temporárias e labels ---
     string l_realloc_fim = genLabel();      // Label para pular a realocação se houver espaço
     string l_ternario_else = genLabel();    // Label para o "else" do ternário
@@ -591,6 +655,6 @@ string append_code(string vet_id, string tipo_base, string val_label) {
 
     // 6. Incrementa o tamanho do vetor
     code += "\t" + vet_id + ".tamanho = " + vet_id + ".tamanho + 1;\n";
-    
+
     return code;
 }

@@ -36,10 +36,15 @@ void genCodigo(string traducao) {
     // Declarações de Variáveis Globais
     for (const Variavel& var : variaveis) {
         if (var.ehDinamico) {
-            codigo += "struct Vetor " + var.id + "; // " + var.nome + "\n";
+            codigo += "struct Vetor " + var.id;
         } else {
-            codigo += var.tipo + " " + var.id + "; // " + var.nome + "\n";
+            codigo += var.tipo + " " + var.id;
         }
+		if (!isdigit(var.nome[0])) {
+			 codigo += "; // " + var.nome + "\n";
+		} else {
+			codigo += ";\n";
+		}
     }
     
     // Adiciona a função de comparação de string e o código traduzido
@@ -64,6 +69,7 @@ void genCodigo(string traducao) {
 %token TK_BREAK TK_CONTINUE
 %token TK_WHEELDECIDE TK_OPTION
 %token TK_FUNCAO TK_RETURN TK_NULL TK_STRUCT
+%token TK_BIND TK_THIS
 %token T_LBRACKET T_RBRACKET
 %token TK_APPEND
 
@@ -159,6 +165,34 @@ FUNCAO:     TK_FUNCAO TK_MAIN '(' ')' { setReturn("main"); } BLOCO
 					$$.traducao = $7.label + " " + f.id + "(" + $5.traducao + $8.traducao + "}\n\n";
 				}
 				hasReturned = false; // reseta o retorno 
+			}
+			| TK_BIND TIPO_METODO TK_ID { entrar_escopo(); entrarMetodo($2.tipo); } '(' ARGS ')' TIPO BLOCO
+			{
+				string a = split(tipoMetodo, "|")[0];
+				string b = split(tipoMetodo, "|")[1];
+				$6.traducao = ($6.traducao == ") {\n") ? a + " " + b + $6.traducao : a + " " + b + ", " + $6.traducao;
+				sairMetodo();
+				declararMetodo($3, $2.tipo, $6.tipo, $8.label);
+				Metodo m = getMetodo($3.label, $2.tipo, $6.tipo);
+				if (!hasReturned) {
+					yyerror("método " + $3.label + " não possui retorno");
+				}
+
+				if ($8.label == "void") {
+					$$.traducao = $8.label + " " + m.id + "(" + $6.traducao + $9.traducao + "}\n\n";
+				} else {
+					$$.traducao = $8.label + " " + m.id + "(" + $6.traducao + $9.traducao + "}\n\n";
+				}
+			}
+			;
+TIPO_METODO: TK_TIPO
+			{
+				$$.tipo = $1.label;
+			} 
+			| TK_ID
+			{
+				TipoStruct ts = getStruct($1.label);
+				$$.tipo = ts.id;
 			}
 			;
 TIPO        :  ':' TK_TIPO { setReturn($2.tipo); }
@@ -680,6 +714,16 @@ E 			: BLOCO
 					yyerror("continue fora de laço");
 				}
 			}
+			| TK_THIS
+			{
+				if (!inMetodo) {
+					yyerror("'this' utilizado fora de um método");
+				}
+				$$.label = split(tipoMetodo, "|")[1];
+				$$.tipo = split(tipoMetodo, "|")[0];
+				$$.tipo = ($$.tipo == "string") ? "char*" : $$.tipo;
+				
+			}
 			| TK_ID '(' CALL_ARGS ')'
 			{
 				if ($1.label == "main") {
@@ -694,6 +738,27 @@ E 			: BLOCO
 				} else {
 					$$.tipo = "void";
 					$$.traducao = "\t" + f.id + "(" + $3.traducao;
+				}
+			}
+			| OP_PONTO '.' TK_ID '(' CALL_ARGS ')'
+			{
+				Variavel v = getVariavel($1.label, true);
+
+				if (v.id == "<error_id>") {
+					v.id = "*" + $1.label;
+					v.tipo = replace($1.tipo, "*", "");
+				}
+				
+				Metodo m = getMetodo($3.label, v.tipo, $5.tipo);
+				$5.traducao = ($5.traducao == ");\n") ? v.id + $5.traducao : v.id + ", " + $5.traducao;
+				
+				if (m.tipo_retorno != "void") {
+					$$.label = genTempCode(m.tipo_retorno);
+					$$.traducao = $1.traducao + "\t" + $$.label + " = " + m.id + "(" + $5.traducao;
+					$$.tipo = m.tipo_retorno;
+				} else {
+					$$.tipo = "void";
+					$$.traducao = $1.traducao + "\t" + m.id + "(" +  $5.traducao;
 				}
 			}
 			// int A = input()
@@ -1023,6 +1088,15 @@ OP_PONTO    : TK_ID
 				$$.tipo = v.tipo;         // Tipo da variável, ex: struct Foo
 				$$.traducao = "";         // Sem código de preparação para a variável base
 			}
+			| TK_THIS
+			{
+				if (!inMetodo) {
+					yyerror("'this' utilizado fora de um método");
+				}
+				$$.label = split(tipoMetodo, "|")[1];
+				$$.tipo = split(tipoMetodo, "|")[0];
+				$$.traducao = "";
+			}
 			| acesso_vetor
 			{
 				$$ = $1; // Repassa os atributos do acesso ao vetor.
@@ -1135,8 +1209,15 @@ PRINT_ARGS:       E ',' PRINT_ARGS
 						break;
 					case 'c':
 						mask = "%c";
+						break;
+					default:
+						mask = "other";
 					}
-					$$.traducao = $1.traducao + "\tprintf(\"" + mask + "\", " + $1.label + ");\n"; 
+					if (mask == "other") {
+						$$.traducao = $1.traducao + "\tprintf(\"<"  + $1.tipo + ">\");\n"; 
+					} else {
+						$$.traducao = $1.traducao + "\tprintf(\"" + mask + "\", " + $1.label + ");\n"; 
+					}
 				}
 			}
 			;
