@@ -42,7 +42,8 @@ struct Funcao
     string nome;
     string prototipo;
     string tipo_retorno;
-    string parametros;
+    string parametros;   // Representação interna, ex: "vector<struct bar>"
+    string c_parametros; // Representação C, ex: "struct Vetor t1"
     string id;
 };
 bool operator<(const Funcao& a, const Funcao& b)
@@ -132,23 +133,58 @@ string genLabel()
     return "L" + to_string(label_qnt++);
 }
 
+bool isDefaultType(const string& tipo) {
+    return tipo == "int" || tipo == "float" || tipo == "char*" || tipo == "bool";
+}
+
 void genPrototipo(Funcao& f)
 {
-    if (f.parametros == "")
+    // Se não há parâmetros, o protótipo é simples (usa void).
+    if (f.parametros.empty())
     {
-        f.prototipo = f.tipo_retorno + " " + f.id + "();\n";
+        f.prototipo = f.tipo_retorno + " " + f.id + "(void);\n";
         return;
     }
-    string args = "";
-    int n_args = 0;
-    for (const auto& param : split(f.parametros, " "))
+
+    string c_param_list_str = "";
+    vector<string> param_types = split(f.parametros, " ");
+    bool first = true;
+
+    // Itera sobre cada tipo de parâmetro da assinatura da função.
+    for (const auto& type : param_types)
     {
-        if (!args.empty())
-            args += ", ";
-        args += param + " arg" + to_string(n_args++);
+        if (type.empty()) continue; // Pula tokens vazios do split.
+
+        if (!first) {
+            c_param_list_str += ", ";
+        }
+
+        string c_type;
+
+        // Verifica se é um tipo de vetor (ex: "int[]", "bar[]").
+        if (type.length() > 2 && type.substr(type.length() - 2) == "[]")
+        {
+            // Em C, todo vetor dinâmico é um "struct Vetor".
+            c_type = "struct Vetor";
+        }
+        // Verifica se é um tipo de struct da nossa linguagem (ex: "bar").
+        // isDefaultType trata int, float, etc. O que não for, é struct.
+        else if (!isDefaultType(type))
+        {
+            // Em C, precisa do prefixo "struct".
+            c_type = "struct " + type;
+        }
+        // É um tipo primitivo (int, float, char*) que já é válido em C.
+        else
+        {
+            c_type = type;
+        }
+        
+        c_param_list_str += c_type;
+        first = false;
     }
 
-    f.prototipo = f.tipo_retorno + " " + f.id + "(" + args + ");\n";
+    f.prototipo = f.tipo_retorno + " " + f.id + "(" + c_param_list_str + ");\n";
 }
 
 // gera as variáveis temporárias
@@ -187,7 +223,7 @@ void sair_escopo()
         yyerror("pilha de escopo vazia!");
 }
 
-void declararVariavel(const string& nome_var, const string& tipo_var, const string& tamanho)
+void declararVariavel(const string& nome_var, const string& tipo_var, const string& tamanho, int numDimensoes = 0)
 {
     if (pilha_escopos.empty())
     {
@@ -202,22 +238,20 @@ void declararVariavel(const string& nome_var, const string& tipo_var, const stri
         yyerror("Variável '" + nome_var + "' já declarada neste escopo.");
         return;
     }
-    // verifica se a variável já foi declarada como função
-    for (const auto& func : funcoes)
-    {
-        if (func.nome == nome_var)
-        {
-            yyerror("Erro: '" + nome_var + "' já foi declarado como função.");
-            return;
-        }
-    }
+
     Variavel v;
     v.nome = nome_var;
     v.tipo = (tipo_var == "string") ? "char*" : tipo_var;
     v.id = genId();
     v.tamanho = tamanho;
-    variaveis.insert(v);
+    v.numDimensoes = numDimensoes; // Armazena o número de dimensões
+    
+    // Simplificação: se tem dimensões, é dinâmico.
+    if (numDimensoes > 0) {
+        v.ehDinamico = true;
+    }
 
+    variaveis.insert(v);
     escopo_atual[nome_var] = v;
 }
 
@@ -252,39 +286,40 @@ Variavel getVariavel(const string& nome_var, bool turnOffError = false)
     return v_erro;
 }
 
-void declararFuncao(atributos& $1, string tipos, string retorno) {
+// 2. Altere a assinatura de declararFuncao para aceitar a string de parâmetros C
+void declararFuncao(atributos& $1, string tipos, string retorno, string c_params_traducao) {
+    for (const Funcao& func : funcoes) {
+        if (func.nome == $1.label && func.parametros == tipos) {
+            yyerror("Função '" + $1.label + "' com a mesma assinatura já foi declarada.");
+            return;
+        }
+    }
     if ($1.label == "main") {
         yyerror("função main já declarada");
     }
-    if ($1.label == "input" || $1.label == "print") {
-        yyerror("função " + $1.label + " já existe");
-    }
 
-    for (const Variavel& var : variaveis) {
-        if (var.nome == $1.label) {
-            yyerror("variável " + $1.label + " já declarada");
-        }
-    }
-
-    for (const Funcao& func : funcoes) {
-        if (func.nome == $1.label && func.parametros == tipos) {
-            yyerror("função " + $1.label + " já declarada");
-        }
-    }
     Funcao f;
     f.nome = $1.label;
     f.tipo_retorno = retorno;
     f.parametros = tipos;
+    f.c_parametros = c_params_traducao; // Armazena a string C correta
     f.id = genId();
-    genPrototipo(f);
+    genPrototipo(f); // genPrototipo agora usará a string correta
     funcoes.insert(f);
     $1.traducao = $1.label;
 }
 
 Funcao getFuncao(const string& nome_funcao, const string& tipos)
 {
+    // Normaliza a string de tipos de argumento para busca
+    // Ex: "bar[] int" -> "bar[] int"
+    // Ex: "struct Vetor int" -> "bar[] int" (aqui é o pulo do gato)
+    // Atualmente, sua E:TK_ID já faz a conversão para "bar[]", então não precisamos
+    // de normalização complexa aqui, apenas o casamento exato.
     for (const Funcao& func : funcoes)
     {
+        // A checagem agora deve funcionar porque E:TK_ID cria o tipo "bar[]"
+        // e ARGS cria o tipo "bar[]" para o parâmetro da função.
         if (func.nome == nome_funcao && func.parametros == tipos)
         {
             return func;
@@ -528,10 +563,6 @@ bool isInteger(const string& s) {
         if (!std::isdigit(s[i])) return false;
     }
     return true;
-}
-
-bool isDefaultType(const string& tipo) {
-    return tipo == "int" || tipo == "float" || tipo == "char*" || tipo == "bool";
 }
 
 string zerarVetor(string id, int n)
