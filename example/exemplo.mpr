@@ -1,5 +1,6 @@
 struct Ponto {
     int x
+
 }
 
 func processa(string nome, int valores[], Ponto p) {
@@ -14,6 +15,7 @@ func main() {
 
     Ponto p1
     p1.x = 1
+    p1.y = 2
 
     processa("Valores", v, p1)
 }

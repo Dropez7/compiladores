@@ -113,30 +113,29 @@ STRUCT      : TK_STRUCT TK_ID '{' VAR_STRUCT '}'
 				structDef.push_back("struct " + $2.label + " {\n" + $4.traducao + "};\n\n");
 			}
 			;
-VAR_STRUCT   : TK_TIPO TK_ID VET ',' VAR_STRUCT
-			{
-				$$.traducao = "\t" + $1.tipo + " " + $2.label + ";\n" + $5.traducao;
-				$$.tipo = $1.tipo + " " + $2.label + " " + $5.tipo; // hack
-			}
-			| TK_ID TK_ID VET ',' VAR_STRUCT 
-			{
-				TipoStruct ts = getStruct($1.label);
-				$$.traducao = "\t" + ts.id + " " + $2.label + ";\n" + $5.traducao;
-
-				$$.tipo = split(ts.id, " ")[1] + " " + $2.label + " " + $5.tipo; 
-			}
-			| TK_TIPO TK_ID VET
-			{
-				$$.traducao = "\t" + $1.tipo + " " + $2.label + ";\n";
-				$$.tipo = $1.tipo + " " + $2.label;
-			}
-			| TK_ID TK_ID VET // struct dentro de struct
-			{
-				TipoStruct ts = getStruct($1.label);
-				$$.traducao = "\t" + ts.id + " " + $2.label + ";\n";
-				$$.tipo = split(ts.id, " ")[1] + " " + $2.label;
-			}
-			;
+VAR_STRUCT   : TK_TIPO TK_ID VET ';' VAR_STRUCT
+             {
+                 $$.traducao = "\t" + $1.tipo + " " + $2.label + ";\n" + $5.traducao;
+                 $$.tipo = $1.tipo + " " + $2.label + " " + $5.tipo; 
+             }
+             | TK_ID TK_ID VET ';' VAR_STRUCT
+             {
+                 TipoStruct ts = getStruct($1.label);
+                 $$.traducao = "\t" + ts.id + " " + $2.label + ";\n" + $5.traducao;
+                 $$.tipo = split(ts.id, " ")[1] + " " + $2.label + " " + $5.tipo;
+             }
+             | TK_TIPO TK_ID VET ';'
+             {
+                 $$.traducao = "\t" + $1.tipo + " " + $2.label + ";\n";
+                 $$.tipo = $1.tipo + " " + $2.label;
+             }
+             | TK_ID TK_ID VET ';'
+             {
+                 TipoStruct ts = getStruct($1.label);
+                 $$.traducao = "\t" + ts.id + " " + $2.label + ";\n";
+                 $$.tipo = split(ts.id, " ")[1] + " " + $2.label;
+             }
+             ;
 VET         : lista_colchetes_vazios
 			{
 				yyerror("vetores não são permitidos dentro de structs");
@@ -213,76 +212,78 @@ TIPO        :  ':' TK_TIPO { setReturn($2.tipo); }
 				$$.label = "void";
 			}
 			;
-ARGS: 	TK_ID TK_ID ',' ARGS // Para casos como: (Ponto p, int x)
-			{
-				TipoStruct ts = getStruct($1.label);
-				declararVariavel($2.label, ts.id, "", 0);
-				Variavel v = getVariavel($2.label);
-				$$.tipo = $1.label + " " + $4.tipo;
-				$$.traducao = ts.id + " " + v.id + ", " + $4.traducao;
-			}
-            | TK_ID TK_ID // Para casos como: (..., Ponto p)
-			{
-				TipoStruct ts = getStruct($1.label);
-				declararVariavel($2.label, ts.id, "", 0);
-				Variavel v = getVariavel($2.label);
-				$$.tipo = $1.label;
-				$$.traducao = ts.id + " " + v.id + ") {\n";
-			}
-			| TK_TIPO TK_ID lista_colchetes_vazios ',' ARGS
-			{
-				vectorUsed = true;
-		
-				declararVariavel($2.label, $1.label, "", $3.nivelAcesso);
-				Variavel v = getVariavel($2.label);
-			    
-				$$.tipo = $1.label + "[] " + $5.tipo;
-			   
-				$$.traducao = "struct Vetor " + v.id + ", " + $5.traducao;
-			}
-			| TK_ID TK_ID lista_colchetes_vazios ',' ARGS
-			{
-				vectorUsed = true;
-				TipoStruct ts = getStruct($1.label);
-				declararVariavel($2.label, ts.id, "", $3.nivelAcesso);
-				Variavel v = getVariavel($2.label);
-			  
-				$$.tipo = $1.label + "[] " + $5.tipo;
-			   
-				$$.traducao = "struct Vetor " + v.id + ", " + $5.traducao;
-			}
-			| TK_TIPO TK_ID lista_colchetes_vazios
-			{
-				vectorUsed = true;
-				declararVariavel($2.label, $1.label, "", $3.nivelAcesso);
-				Variavel v = getVariavel($2.label);
-				$$.tipo = $1.label + "[]";
-				$$.traducao = "struct Vetor " + v.id + ") {\n";
-			}
-			| TK_ID TK_ID lista_colchetes_vazios 
-			{
-				vectorUsed = true;
-				TipoStruct ts = getStruct($1.label);
-				declararVariavel($2.label, ts.id, "", $3.nivelAcesso);
-				Variavel v = getVariavel($2.label);
-				$$.tipo = $1.label + "[]";
-				$$.traducao = "struct Vetor " + v.id + ") {\n";
-			}
-			| TK_TIPO TK_ID ',' ARGS
-			{
-				declararVariavel($2.label, $1.label, "", 0); 
-				Variavel v = getVariavel($2.label);
-				$$.tipo = v.tipo + " " + $4.tipo; 
-				$$.traducao = v.tipo + " " + v.id + ", " + $4.traducao;
-			}
-			| TK_TIPO TK_ID
-			{
-				declararVariavel($2.label, $1.label, "", 0); 
-				Variavel v = getVariavel($2.label);
-				$$.tipo = v.tipo;
-				$$.traducao = v.tipo + " " + v.id + ") {\n";
-			}
-			;
+ARGS:        TK_TIPO TK_ID lista_colchetes_vazios ',' ARGS
+             {
+                 vectorUsed = true;
+                 declararVariavel($2.label, $1.label, "", $3.nivelAcesso);
+                 Variavel v = getVariavel($2.label);
+                 $$.tipo = $1.label + "[] " + $5.tipo;
+                 $$.traducao = "struct Vetor " + v.id + ", " + $5.traducao;
+             }
+             | TK_ID TK_ID lista_colchetes_vazios ',' ARGS
+             {
+                 vectorUsed = true;
+                 TipoStruct ts = getStruct($1.label);
+                 declararVariavel($2.label, ts.id, "", $3.nivelAcesso);
+                 Variavel v = getVariavel($2.label);
+                 $$.tipo = $1.label + "[] " + $5.tipo;
+                 $$.traducao = "struct Vetor " + v.id + ", " + $5.traducao;
+             }
+             | TK_TIPO TK_ID lista_colchetes_vazios
+             {
+                 vectorUsed = true;
+                 declararVariavel($2.label, $1.label, "", $3.nivelAcesso);
+                 Variavel v = getVariavel($2.label);
+                 $$.tipo = $1.label + "[]";
+                 $$.traducao = "struct Vetor " + v.id + ") {\n";
+             }
+             | TK_ID TK_ID lista_colchetes_vazios
+             {
+                 vectorUsed = true;
+                 TipoStruct ts = getStruct($1.label);
+                 declararVariavel($2.label, ts.id, "", $3.nivelAcesso);
+                 Variavel v = getVariavel($2.label);
+                 $$.tipo = $1.label + "[]";
+                 $$.traducao = "struct Vetor " + v.id + ") {\n";
+             }
+             | TK_TIPO TK_ID ',' ARGS
+             {
+                 declararVariavel($2.label, $1.label, "", 0);
+                 Variavel v = getVariavel($2.label);
+                 $$.tipo = v.tipo + " " + $4.tipo;
+                 $$.traducao = v.tipo + " " + v.id + ", " + $4.traducao;
+             }
+             // NOVA REGRA: Parâmetro do tipo struct seguido por outros
+             | TK_ID TK_ID ',' ARGS
+             {
+                TipoStruct ts = getStruct($1.label);
+                declararVariavel($2.label, ts.id, "", 0);
+                Variavel v = getVariavel($2.label);
+                // Tipo para assinatura da função (ex: "Ponto")
+                string sig_type = split(ts.id, " ")[1];
+                $$.tipo = sig_type + " " + $4.tipo;
+                // Tradução para C (ex: "struct Ponto t1, ...")
+                $$.traducao = v.tipo + " " + v.id + ", " + $4.traducao;
+             }
+             | TK_TIPO TK_ID
+             {
+                 declararVariavel($2.label, $1.label, "", 0);
+                 Variavel v = getVariavel($2.label);
+                 $$.tipo = v.tipo;
+                 $$.traducao = v.tipo + " " + v.id + ") {\n";
+             }
+             // NOVA REGRA: Parâmetro final do tipo struct
+             | TK_ID TK_ID
+             {
+                 TipoStruct ts = getStruct($1.label);
+                 declararVariavel($2.label, ts.id, "", 0);
+                 Variavel v = getVariavel($2.label);
+                 // Tipo para assinatura (ex: "Ponto")
+                 $$.tipo = split(ts.id, " ")[1];
+                 // Tradução para C (ex: "struct Ponto t2) {\n")
+                 $$.traducao = v.tipo + " " + v.id + ") {\n";
+             }
+             ;
 CALL_ARGS   : E ',' CALL_ARGS
 			{
 				$$.tipo = $1.tipo + " " + $3.tipo; // multiplos tipos
