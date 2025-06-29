@@ -1,12 +1,5 @@
-struct Ponto {
-    int x
-
-}
-
-func processa(string nome, int valores[], Ponto p) {
-    print(nome)      
-    print(valores[0])
-    print(p.x)        
+struct bar {
+    int x;
 }
 
 func printaVetor(bar vetor[]) {
@@ -14,12 +7,11 @@ func printaVetor(bar vetor[]) {
 }
 
 func main() {
-    int v[]
-    v.append(10)
+    bar v[]
 
-    Ponto p1
-    p1.x = 1
-    p1.y = 2
+    bar b
+    b.x = 42
+    v.append(b)
 
-    processa("Valores", v, p1)
+    printaVetor(v) // Saída esperada: 42
 }
