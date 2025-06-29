@@ -226,7 +226,60 @@ ARGS 		: TK_TIPO TK_ID ',' ARGS
 				$$.tipo = v.tipo;
 				$$.traducao = v.tipo + " " + v.id + ") {\n";
 			}
-			|
+			| TK_TIPO TK_ID lista_colchetes_vazios ',' ARGS
+                        {
+                vectorUsed = true;
+                // Declara a variável, mas o tipo C gerado será "struct Vetor"
+                declararVariavel($2.label, "struct Vetor", "");
+                Variavel& v = pilha_escopos.back()[$2.label];
+                v.ehDinamico = true;
+                v.numDimensoes = $3.nivelAcesso;
+                // A linha abaixo é importante para garantir que o set de variáveis globais tenha a info atualizada
+                variaveis.erase(v); variaveis.insert(v);
+
+                $$.tipo = "struct Vetor " + $5.tipo;
+                $$.traducao = "struct Vetor " + v.id + ", " + $5.traducao;
+            }
+			| TK_ID TK_ID lista_colchetes_vazios ',' ARGS
+								{
+						vectorUsed = true;
+						TipoStruct ts = getStruct($1.label);
+						declararVariavel($2.label, "struct Vetor", "");
+						Variavel& v = pilha_escopos.back()[$2.label];
+						v.tipo = ts.id; // Guarda o tipo base real
+						v.ehDinamico = true;
+						v.numDimensoes = $3.nivelAcesso;
+						variaveis.erase(v); variaveis.insert(v);
+
+						$$.tipo = "struct Vetor " + $5.tipo;
+						$$.traducao = "struct Vetor " + v.id + ", " + $5.traducao;
+					}
+			| TK_TIPO TK_ID lista_colchetes_vazios
+								{
+						vectorUsed = true;
+						declararVariavel($2.label, "struct Vetor", "");
+						Variavel& v = pilha_escopos.back()[$2.label];
+						v.ehDinamico = true;
+						v.numDimensoes = $3.nivelAcesso;
+						variaveis.erase(v); variaveis.insert(v);
+
+						$$.tipo = "struct Vetor";
+						$$.traducao = "struct Vetor " + v.id + ") {\n";
+					}
+			| TK_ID TK_ID lista_colchetes_vazios
+                        {
+                vectorUsed = true;
+                TipoStruct ts = getStruct($1.label);
+                declararVariavel($2.label, "struct Vetor", "");
+                Variavel& v = pilha_escopos.back()[$2.label];
+                v.tipo = ts.id; // Guarda o tipo base real
+                v.ehDinamico = true;
+                v.numDimensoes = $3.nivelAcesso;
+                variaveis.erase(v); variaveis.insert(v);
+
+                $$.tipo = "struct Vetor";
+                $$.traducao = "struct Vetor " + v.id + ") {\n";
+            }
 			{
 				$$.tipo = "";
 				$$.traducao = ") {\n";
@@ -705,8 +758,12 @@ E 			: BLOCO
 			{
 				Variavel v = getVariavel($1.label);
 				$$.label = v.id;
-				$$.tipo = v.tipo;
 				$$.tamanho = v.tamanho;
+				 if (v.ehDinamico) {
+                    $$.tipo = "struct Vetor";
+                } else {
+                    $$.tipo = v.tipo;
+                }
 			}
 			| TK_BREAK
 			{
