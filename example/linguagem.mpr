@@ -1,72 +1,231 @@
-// exemplo de cláusulas guardadas em C
+// ===================================================================
+//   Arquivo de Exemplo Completo da Linguagem de Programação MAPHRA
+//
+// Este código demonstra de forma estruturada todos os recursos
+// que o nosso compilador já suporta, com base nos requerimentos do Moodle.
+// ===================================================================
 
-int guards[3] = { 0, 0, 0 };
-int count = 0;
 
-if (i == 0) guards[count++] = 1;
-if (i > j) guards[count++] = 2;
-if (j > i) guards[count++] = 3;
-
-if (count != 0) {
-    int choice = rand() % count;
-
-    if (guards[choice] == 1) {
-        sum += i;
-    }
-    else if (guards[choice] == 2) {
-        sum += j;
-    }
-    else if (guards[choice] == 3) {
-        sum += i;
-    }
+// --- Definição de Tipos de Estrutura (struct) ---
+// Sua linguagem suporta a criação de tipos de dados compostos.
+struct Ponto {
+    float x;
+    float y;
 }
-printf("%d\n", sum);
 
-// tradução para linguagem de 3 endereços
+// É possível aninhar structs para criar estruturas mais complexas.
+struct Retangulo {
+    Ponto superior_esquerdo;
+    Ponto inferior_direito;
+    string nome;
+}
 
-    guards = malloc(CLAUSES);
-L0:
-    t1 = (t0 < nCLAUSES);
-    if (!t1) goto L1;
-    guards[t0] = 0;
-    t0 = t0 + 1;
-    goto L0;
-L1:
-    count = 0;
+// Podemos então, fazer códigos assim:
 
-    t2 = (i == 0);
-    if (!t2) goto L2;
-    guards[count] = 1;
-    count = count + 1;
-L2:
-    t3 = (i > j);
-    if (!t3) goto L3;
-    guards[count] = 2;
-    count = count + 1;
-L3:
-    t4 = (j > i);
-    if (!t4) goto L4;
-    guards[count] = 3;
-    count = count + 1;
-L4:
-    t5 = (count != 0);
-    if (!t5) goto END;
-    t9 = rand();
-    choice = t9 % count;
+struct Ponto {
+    float x;
+    float y;
+}
 
-    t6 = guards[choice] == 1;
-    if (!t6) goto L5;
-    sum = sum + i;
-    goto END;
-L5:
-    t7 = guards[choice] == 2;
-    if (!t7) goto L6;
-    sum = sum + j;
-    goto END;
-L6:
-    t8 = guards[choice] == 3;
-    if (!t8) goto END;
-    sum = sum + i;
-END:
-    free(guards);
-    printf("%d\n", sum);
+struct Retangulo {
+    Ponto superior_esquerdo;
+    Ponto inferior_direito;
+    string nome;
+}
+
+func main() {
+    Ponto p1;
+    Ponto p2;
+    Retangulo r;
+    p1.x = 0.0;
+    p1.y = 0.0;
+    p2.x = 10.0;
+    p2.y = 5.0;
+    r.superior_esquerdo = p1;
+    r.inferior_direito = p2;
+    r.nome = "Meu Retângulo";
+    print("Retângulo:", r.nome);
+    print("Canto Superior Esquerdo: (", r.superior_esquerdo.x, ",", r.superior_esquerdo.y, ")");
+    print("Canto Inferior Direito: (", r.inferior_direito.x, ",", r.inferior_direito.y, ")");
+    print("Área do Retângulo:", (r.inferior_direito.x - r.superior_esquerdo.x) * (r.superior_esquerdo.y - r.inferior_direito.y));
+    print("Fim do programa.");
+}
+
+// --- Escopo Global ---
+// Variáveis declaradas fora de qualquer função possuem escopo global.
+int execucoes_globais = 0;
+
+
+// --- Subprogramas: Funções e Procedimentos ---
+
+// Exemplo de um PROCEDIMENTO (sem valor de retorno : void implícito).
+// Demonstra a passagem de parâmetros, incluindo structs.
+func imprimirRetangulo(Retangulo r) {
+    print("--- Retângulo:", r.nome, "---");
+    print(" Canto Superior Esquerdo: (", r.superior_esquerdo.x, ",", r.superior_esquerdo.y, ")");
+    print(" Canto Inferior Direito: (", r.inferior_direito.x, ",", r.inferior_direito.y, ")");
+}
+
+// Exemplo de uma FUNÇÃO (com valor de retorno explícito).
+// Demonstra o uso de expressões aritméticas e o comando 'return'.
+func calcularArea(Retangulo r) : float {
+    float base = r.inferior_direito.x - r.superior_esquerdo.x;
+    float altura = r.superior_esquerdo.y - r.inferior_direito.y;
+    return base * altura;
+}
+
+// --- Função Principal (main) ---
+// O ponto de entrada obrigatório do programa.
+funcao main() {
+
+    // --- Declaração Explícita e Inicialização de Tipos Primitivos ---
+    print("1. Declarando variáveis explicitamente...");
+    int idade = 30;
+    float salario = 4500.50;
+    bool possui_carro = T;
+    string titulo = "Engenheiro de Software";
+    
+    // --- Comandos de Saída (print) ---
+    print(" Idade:", idade, "Salário:", salario, "Possui Carro:", possui_carro, "Título:", titulo);
+    print(""); // Pula uma linha
+
+    // --- Operadores Aritméticos e Concatenação de String ---
+    print("2. Testando operadores...");
+    int a = 100;
+    int b = 25;
+    print(" a+b =", a+b, "| a-b =", a-b, "| a*b =", a*b, "| a/b =", a/b);
+    
+    string nome = "João";
+    string sobrenome = " Silva";
+    string nome_completo = nome + sobrenome; // Concatenação
+    print(" Nome completo:", nome_completo);
+    print("");
+
+    // --- Declaração Implícita e Inferência de Tipo ---
+    // A variável 'ano_nascimento' não foi declarada antes, então é criada
+    // implicitamente com o tipo 'int', inferido do valor 1994.
+    ano_nascimento = 1994;
+    print(" Ano de Nascimento (implícito):", ano_nascimento);
+    print("");
+
+    // --- Comandos de Entrada (input) ---
+    string cor_favorita = input("Qual a sua cor favorita? ");
+    print("Sua cor favorita é:", cor_favorita);
+    print("");
+
+    // --- Operadores Relacionais e Lógicos em Comandos de Decisão (if/else) ---
+    print("3. Testando estruturas de decisão...");
+    if ((idade > 18 ^ possui_carro) ? (salario > 5000.0)) {
+        print(" Condição complexa (E/OU) satisfeita!");
+    } else {
+        print(" Condição complexa (E/OU) não satisfeita.");
+    }
+    
+    // Operador unário de negação (~)
+    if (~possui_carro) {
+        print(" Você não possui um carro.");
+    }
+
+    // --- Comando de Decisão (switch) ---
+    int opcao = 2;
+    switch (opcao) {
+        option 1:
+            print(" Switch: Opção 1 escolhida.");
+            break;
+        option 2:
+            print(" Switch: Opção 2 escolhida.");
+            break; // O 'break' também funciona aqui
+        default:
+            print(" Switch: Opção padrão.");
+    }
+    print("");
+
+    // --- Matrizes (Vetores Dinâmicos 1D e 2D) ---
+    print("4. Testando vetores e matrizes dinâmicas...");
+    int notas[]; // Declaração de vetor 1D
+    
+    // Inicialização de Matrizes (via método append)
+    notas.append(10);
+    notas.append(8);
+    notas.append(9);
+    print(" Nota na posição 1:", notas[1]); // Acesso a elemento
+
+    // Matriz 2D
+    int grade_horarios[][];
+    grade_horarios.append([101, 102, 103]); // Adiciona uma linha
+    grade_horarios.append([201, 202, 203]); // Adiciona outra linha
+    print(" Elemento da matriz [1][2]:", grade_horarios[1][2]); // Acesso aninhado
+    print("");
+
+    // --- Comandos de Laço (for, while, do-while) ---
+    print("5. Testando estruturas de laço...");
+    
+    // Laço estilo 'for' C-style
+    print(" Laço 'for':");
+    laco(int i=0; i < notas.tamanho; i++) {
+        if (i == 1) {
+            print("  (pulando o índice 1 com 'continue')");
+            continue; // Mecanismo de Controle de Laço
+        }
+        print("  - Nota", i, ":", notas[i]);
+        if (notas[i] == 10) {
+            print("  (encontrou a nota máxima, saindo com 'break')");
+            break; // Mecanismo de Controle de Laço
+        }
+    }
+    print("");
+
+    // Laço estilo 'while'
+    print(" Laço 'while':");
+    int regressiva = 3;
+    laco (regressiva > 0) {
+        print("  -", regressiva);
+        regressiva--; // Operador Unário
+    }
+    print("");
+
+    // Laço estilo 'do-while'
+    print(" Laço 'do-while':");
+    int contador_do = 0;
+    do {
+        contador_do += 1; // Operador Composto
+        print("  - iteração", contador_do);
+    } laco (contador_do < 2);
+    print("");
+
+    // --- Uso de Structs e chamada de Funções/Procedimentos ---
+    print("6. Testando o uso de Structs...");
+    Retangulo meu_ret;
+    meu_ret.nome = "Sala Principal";
+    meu_ret.superior_esquerdo.x = 10.0;
+    meu_ret.superior_esquerdo.y = 50.0;
+    meu_ret.inferior_direito.x = 60.0;
+    meu_ret.inferior_direito.y = 20.0;
+
+    imprimirRetangulo(meu_ret); // Chamada de procedimento
+    float area = calcularArea(meu_ret); // Chamada de função
+    print(" Área calculada:", area);
+    print("");
+
+    // --- Conversão de Tipos (Cast) ---
+    print("7. Testando conversão de tipos...");
+    float numero_quebrado = 9.87;
+    int numero_inteiro = int(numero_quebrado); // Conversão explícita
+    print(" Convertendo", numero_quebrado, "para inteiro resulta em:", numero_inteiro);
+    print("");
+
+    // --- Comandos Protegidos (wheeldecide) ---
+    print("8. Testando comandos protegidos...");
+    int guard1 = 10;
+    int guard2 = -5;
+    
+    // Executará aleatoriamente um dos comandos cuja condição é verdadeira.
+    // Se ambos forem verdadeiros, a escolha é não-determinística.
+    // Se nenhum for verdadeiro, nada acontece.
+    wheeldecide {
+        option guard1 > 0 -> print("  WheelDecide: A guarda 1 (positiva) foi escolhida.");
+        option guard2 > 0 -> print("  WheelDecide: A guarda 2 (positiva) foi escolhida.");
+    }
+    
+    print("\nFim do programa.");
+}

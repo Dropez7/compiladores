@@ -70,7 +70,7 @@ void genCodigo(string traducao) {
 %token TK_WHEELDECIDE TK_OPTION
 %token TK_FUNCAO TK_RETURN TK_NULL TK_STRUCT
 %token TK_BIND TK_THIS
-%token TK_APPEND
+%token TK_APPEND TK_LEN
 
 %start S
 
@@ -115,7 +115,8 @@ STRUCT      : TK_STRUCT TK_ID '{' VAR_STRUCT '}'
 			;
 VAR_STRUCT   : TK_TIPO TK_ID VET ';' VAR_STRUCT
              {
-                 $$.traducao = "\t" + $1.tipo + " " + $2.label + ";\n" + $5.traducao;
+                string tipo_c = ($1.tipo == "string") ? "char*" : $1.tipo;
+                 $$.traducao = "\t" + tipo_c + " " + $2.label + ";\n" + $5.traducao;
                  $$.tipo = $1.tipo + " " + $2.label + " " + $5.tipo; 
              }
              | TK_ID TK_ID VET ';' VAR_STRUCT
@@ -126,7 +127,8 @@ VAR_STRUCT   : TK_TIPO TK_ID VET ';' VAR_STRUCT
              }
              | TK_TIPO TK_ID VET ';'
              {
-                 $$.traducao = "\t" + $1.tipo + " " + $2.label + ";\n";
+                string tipo_c = ($1.tipo == "string") ? "char*" : $1.tipo;
+                 $$.traducao = "\t" + tipo_c + " " + $2.label + ";\n";
                  $$.tipo = $1.tipo + " " + $2.label;
              }
              | TK_ID TK_ID VET ';'
@@ -212,78 +214,83 @@ TIPO        :  ':' TK_TIPO { setReturn($2.tipo); }
 				$$.label = "void";
 			}
 			;
-ARGS:        TK_TIPO TK_ID lista_colchetes_vazios ',' ARGS
-             {
-                 vectorUsed = true;
-                 declararVariavel($2.label, $1.label, "", $3.nivelAcesso);
-                 Variavel v = getVariavel($2.label);
-                 $$.tipo = $1.label + "[] " + $5.tipo;
-                 $$.traducao = "struct Vetor " + v.id + ", " + $5.traducao;
-             }
-             | TK_ID TK_ID lista_colchetes_vazios ',' ARGS
-             {
-                 vectorUsed = true;
-                 TipoStruct ts = getStruct($1.label);
-                 declararVariavel($2.label, ts.id, "", $3.nivelAcesso);
-                 Variavel v = getVariavel($2.label);
-                 $$.tipo = $1.label + "[] " + $5.tipo;
-                 $$.traducao = "struct Vetor " + v.id + ", " + $5.traducao;
-             }
-             | TK_TIPO TK_ID lista_colchetes_vazios
-             {
-                 vectorUsed = true;
-                 declararVariavel($2.label, $1.label, "", $3.nivelAcesso);
-                 Variavel v = getVariavel($2.label);
-                 $$.tipo = $1.label + "[]";
-                 $$.traducao = "struct Vetor " + v.id + ") {\n";
-             }
-             | TK_ID TK_ID lista_colchetes_vazios
-             {
-                 vectorUsed = true;
-                 TipoStruct ts = getStruct($1.label);
-                 declararVariavel($2.label, ts.id, "", $3.nivelAcesso);
-                 Variavel v = getVariavel($2.label);
-                 $$.tipo = $1.label + "[]";
-                 $$.traducao = "struct Vetor " + v.id + ") {\n";
-             }
-             | TK_TIPO TK_ID ',' ARGS
-             {
-                 declararVariavel($2.label, $1.label, "", 0);
-                 Variavel v = getVariavel($2.label);
-                 $$.tipo = v.tipo + " " + $4.tipo;
-                 $$.traducao = v.tipo + " " + v.id + ", " + $4.traducao;
-             }
-             // NOVA REGRA: Parâmetro do tipo struct seguido por outros
-             | TK_ID TK_ID ',' ARGS
-             {
+ARGS:       TK_TIPO TK_ID ',' ARGS
+            {
+                // Parâmetro primitivo (ex: int a, ...)
+                declararVariavel($2.label, $1.label, "", 0);
+                Variavel v = getVariavel($2.label);
+                $$.tipo = v.tipo + " " + $4.tipo;
+                $$.traducao = v.tipo + " " + v.id + ", " + $4.traducao;
+            }
+            | TK_ID TK_ID ',' ARGS
+            {
+                // Parâmetro de struct (ex: Ponto p1, ...)
                 TipoStruct ts = getStruct($1.label);
                 declararVariavel($2.label, ts.id, "", 0);
                 Variavel v = getVariavel($2.label);
-                // Tipo para assinatura da função (ex: "Ponto")
-                string sig_type = split(ts.id, " ")[1];
-                $$.tipo = sig_type + " " + $4.tipo;
-                // Tradução para C (ex: "struct Ponto t1, ...")
+                $$.tipo = ts.id + " " + $4.tipo; // Assinatura CORRETA
                 $$.traducao = v.tipo + " " + v.id + ", " + $4.traducao;
-             }
-             | TK_TIPO TK_ID
-             {
-                 declararVariavel($2.label, $1.label, "", 0);
-                 Variavel v = getVariavel($2.label);
-                 $$.tipo = v.tipo;
-                 $$.traducao = v.tipo + " " + v.id + ") {\n";
-             }
-             // NOVA REGRA: Parâmetro final do tipo struct
-             | TK_ID TK_ID
-             {
-                 TipoStruct ts = getStruct($1.label);
-                 declararVariavel($2.label, ts.id, "", 0);
-                 Variavel v = getVariavel($2.label);
-                 // Tipo para assinatura (ex: "Ponto")
-                 $$.tipo = split(ts.id, " ")[1];
-                 // Tradução para C (ex: "struct Ponto t2) {\n")
-                 $$.traducao = v.tipo + " " + v.id + ") {\n";
-             }
-             ;
+            }
+            | TK_TIPO TK_ID
+            {
+                // Parâmetro final primitivo (ex: int a)
+                declararVariavel($2.label, $1.label, "", 0);
+                Variavel v = getVariavel($2.label);
+                $$.tipo = v.tipo;
+                $$.traducao = v.tipo + " " + v.id + ") {\n";
+            }
+            | TK_ID TK_ID
+            {
+                // Parâmetro final de struct (ex: Retangulo r)
+                TipoStruct ts = getStruct($1.label);
+                declararVariavel($2.label, ts.id, "", 0);
+                Variavel v = getVariavel($2.label);
+                $$.tipo = ts.id; // Assinatura CORRETA
+                $$.traducao = v.tipo + " " + v.id + ") {\n";
+            }
+            // --- REGRAS PARA VETORES ---
+            | TK_TIPO TK_ID lista_colchetes_vazios ',' ARGS
+            {
+                vectorUsed = true;
+                declararVariavel($2.label, $1.label, "", $3.nivelAcesso);
+                Variavel v = getVariavel($2.label);
+                $$.tipo = $1.label + "[] " + $5.tipo;
+                $$.traducao = "struct Vetor " + v.id + ", " + $5.traducao;
+            }
+            | TK_ID TK_ID lista_colchetes_vazios ',' ARGS
+            {
+                vectorUsed = true;
+                TipoStruct ts = getStruct($1.label);
+                declararVariavel($2.label, ts.id, "", $3.nivelAcesso);
+                Variavel v = getVariavel($2.label);
+                // Assinatura CORRETA para vetores de struct
+                $$.tipo = ts.id + "[] " + $5.tipo;
+                $$.traducao = "struct Vetor " + v.id + ", " + $5.traducao;
+            }
+            | TK_TIPO TK_ID lista_colchetes_vazios
+            {
+                vectorUsed = true;
+                declararVariavel($2.label, $1.label, "", $3.nivelAcesso);
+                Variavel v = getVariavel($2.label);
+                $$.tipo = $1.label + "[]";
+                $$.traducao = "struct Vetor " + v.id + ") {\n";
+            }
+            | TK_ID TK_ID lista_colchetes_vazios
+            {
+                vectorUsed = true;
+                TipoStruct ts = getStruct($1.label);
+                declararVariavel($2.label, ts.id, "", $3.nivelAcesso);
+                Variavel v = getVariavel($2.label);
+                // Assinatura CORRETA para vetor de struct final
+                $$.tipo = ts.id + "[]";
+                $$.traducao = "struct Vetor " + v.id + ") {\n";
+            }
+            | /* Vazio - sem argumentos */
+            {
+                $$.traducao = ") {\n";
+                $$.tipo = "";
+            }
+            ;
 CALL_ARGS   : E ',' CALL_ARGS
 			{
 				$$.tipo = $1.tipo + " " + $3.tipo; // multiplos tipos
@@ -820,7 +827,7 @@ E 			: BLOCO
 			}
 			| OP_PONTO '.' METHOD '(' CALL_ARGS ')'
 			{
-				Variavel v = getVariavel($1.label, true); // <-- AGORA FUNCIONA CORRETAMENTE!
+				Variavel v = getVariavel($1.label, true);
 				if (v.id == "<error_id>") {
 					v.id = ($3.label == "append") ? $1.label : "*" + $1.label;
 					v.tipo = replace($1.tipo, "*", "");
@@ -856,6 +863,20 @@ E 			: BLOCO
 						$$.traducao = $5.traducaoAlt;
 						$$.traducao += append_code(v.id, v.tipo, val_label);
 					}
+				} else if ($3.label == "len") { 
+					if (!v.ehDinamico) {
+						yyerror("O método 'len' só pode ser chamado em um vetor dinâmico.");
+					}
+					if ($5.tipo != "") { 
+						yyerror("O método 'len' não aceita argumentos.");
+					}
+
+					// O resultado de len() é um inteiro.
+					$$.tipo = "int";
+					$$.label = genTempCode("int");
+
+					// A tradução simplesmente acessa o campo .tamanho da struct Vetor.
+					$$.traducao = $1.traducao + "\t" + $$.label + " = " + $1.label + ".tamanho;\n";
 				} else {				
 					Metodo m = getMetodo($3.label, v.tipo, $5.tipo);
 					$5.traducao = ($5.traducao == ");\n") ? v.id + $5.traducao : v.id + ", " + $5.traducao;
@@ -1074,6 +1095,10 @@ METHOD      : TK_ID
 			{
 				$$.label = "append";
 			}
+			| TK_LEN
+            { $$.label = "len"; }
+            ;
+
 inicializacao_lista:
 			'[' lista_elementos ']'
 			{
@@ -1240,70 +1265,61 @@ OPTIONAL:   E
 				$$.traducao = "";
 			}
 			; 
-PRINT_ARGS:       E ',' PRINT_ARGS
-			{
-				if ($1.tipo == "char*") {
-					$$.traducao = $1.traducao + "\tprintf(\"%s\", " + $1.label 
-					+ ");\n\tprintf(\" \");\n";
-				} else if ($1.tipo == "bool") {
-					string tmp = genTempCode("bool");
-					string l1 = genLabel();
-					string l2 = genLabel();
-					$$.traducao = $1.traducao + "\t" + tmp + " = " + $1.label + " == 1;\n"
-					+ "\tif (!" + tmp + ") goto " + l1 + ";\n\tprintf(\"T \");\n\tgoto " + l2 
-					+ ";\n" + l1 + ":\n\tprintf(\"F \");\n" + l2 + ":\n";
-				} else {
-					string mask;
-					switch ($1.tipo[0]) {
-					case 'i':
-						mask = "%d";
-						break;
-					case 'f':
-						mask = "%f";
-						break;
-					case 'c':
-						mask = "%c";
-					}
-					$$.traducao = $1.traducao + "\tprintf(\"" + mask + "\", " + $1.label 
-					+ ");\n\tprintf(\" \");\n"; 
-				}
-				$$.traducao = $$.traducao + $3.traducao;
-			}
-			| E
-			{
-				if ($1.tipo == "char*") {
-					$$.traducao = $1.traducao + "\tprintf(\"%s\", " + $1.label + ");\n";
-				} else if ($1.tipo == "bool") {
-					string tmp = genTempCode("bool");
-					string l1 = genLabel();
-					string l2 = genLabel();
-					$$.traducao = $1.traducao + "\t" + tmp + " = " + $1.label + " == 1;\n"
-					+ "\tif (!" + tmp + ") goto " + l1 + ";\n\tprintf(\"T\");\n\tgoto " + l2 
-					+ ";\n" + l1 + ":\n\tprintf(\"F\");\n" + l2 + ":\n";
-				} else {
-					string mask;
-					switch ($1.tipo[0]) {
-					case 'i':
-					case 'b':
-						mask = "%d";
-						break;
-					case 'f':
-						mask = "%f";
-						break;
-					case 'c':
-						mask = "%c";
-						break;
-					default:
-						mask = "other";
-					}
-					if (mask == "other") {
-						$$.traducao = $1.traducao + "\tprintf(\"<"  + $1.tipo + ">\");\n"; 
-					} else {
-						$$.traducao = $1.traducao + "\tprintf(\"" + mask + "\", " + $1.label + ");\n"; 
-					}
-				}
-			}
-			;
+PRINT_ARGS:     E ',' PRINT_ARGS
+            {
+                // Unifica a checagem de tipo. Se for "char*" OU "string", trata como string.
+                if ($1.tipo == "char*" || $1.tipo == "string") {
+                    $$.traducao = $1.traducao + "\tprintf(\"%s\", " + $1.label + ");\n\tprintf(\" \");\n";
+                } else if ($1.tipo == "bool") {
+                    string tmp = genTempCode("bool");
+                    string l1 = genLabel();
+                    string l2 = genLabel();
+                    $$.traducao = $1.traducao + "\t" + tmp + " = " + $1.label + " == 1;\n"
+                    + "\tif (!" + tmp + ") goto " + l1 + ";\n\tprintf(\"T \");\n\tgoto " + l2 
+                    + ";\n" + l1 + ":\n\tprintf(\"F \");\n" + l2 + ":\n";
+                } else {
+                    string mask;
+                    switch ($1.tipo[0]) {
+                        case 'i': mask = "%d"; break;
+                        case 'f': mask = "%f"; break;
+                        case 'c': mask = "%c"; break;
+                        default:  mask = "other";
+                    }
+                    if (mask == "other") {
+                        $$.traducao = $1.traducao + "\tprintf(\"<%s>\", \"" + $1.tipo + "\");\n";
+                    } else {
+                        $$.traducao = $1.traducao + "\tprintf(\"" + mask + "\", " + $1.label + ");\n\tprintf(\" \");\n";
+                    }
+                }
+                $$.traducao += $3.traducao;
+            }
+            | E
+            {
+                // Unifica a checagem de tipo. Se for "char*" OU "string", trata como string.
+                if ($1.tipo == "char*" || $1.tipo == "string") {
+                    $$.traducao = $1.traducao + "\tprintf(\"%s\", " + $1.label + ");\n";
+                } else if ($1.tipo == "bool") {
+                    string tmp = genTempCode("bool");
+                    string l1 = genLabel();
+                    string l2 = genLabel();
+                    $$.traducao = $1.traducao + "\t" + tmp + " = " + $1.label + " == 1;\n"
+                    + "\tif (!" + tmp + ") goto " + l1 + ";\n\tprintf(\"T\");\n\tgoto " + l2 
+                    + ";\n" + l1 + ":\n\tprintf(\"F\");\n" + l2 + ":\n";
+                } else {
+                    string mask;
+                    switch ($1.tipo[0]) {
+                        case 'i': case 'b': mask = "%d"; break;
+                        case 'f': mask = "%f"; break;
+                        case 'c': mask = "%c"; break;
+                        default:  mask = "other";
+                    }
+                    if (mask == "other") {
+                        $$.traducao = $1.traducao + "\tprintf(\"<%s>\", \"" + $1.tipo + "\");\n";
+                    } else {
+                        $$.traducao = $1.traducao + "\tprintf(\"" + mask + "\", " + $1.label + ");\n"; 
+                    }
+                }
+            }
 
 %%
 

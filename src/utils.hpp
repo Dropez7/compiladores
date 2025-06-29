@@ -110,6 +110,8 @@ set<string> free_vars;
 vector<map<string, Variavel>> pilha_escopos;
 vector<WDarg> pilha_wd;
 
+string replace(const string&, const string&, const string&);
+
 vector<string> split(const string& s, const string& delimiter)
 {
     vector<string> tokens;
@@ -133,8 +135,10 @@ string genLabel()
     return "L" + to_string(label_qnt++);
 }
 
+// Verifica se o tipo é um tipo padrão da linguagem (int, float, char*, bool, string)
+// Se for, retorna true. Caso contrário, é um tipo de struct definido pelo usuário.
 bool isDefaultType(const string& tipo) {
-    return tipo == "int" || tipo == "float" || tipo == "char*" || tipo == "bool";
+    return tipo == "int" || tipo == "float" || tipo == "char*" || tipo == "bool" || tipo == "string";
 }
 
 void genPrototipo(Funcao& f)
@@ -194,15 +198,16 @@ string genTempCode(string tipo)
     {
         yyerror("Erro Critico: Nao ha escopo ativo para declarar a variavel temporaria.");
     }
-    if (tipo == "string")
-    {
-        tipo = "char*";
-    }
+    // Substitui 'string' por 'char*' em qualquer lugar no nome do tipo.
+    // Isso corrige tanto "string" quanto "string*".
+    string tipo_c = replace(tipo, "string", "char*");
+
     map<string, Variavel>& escopo_atual = pilha_escopos.back();
 
     Variavel v;
     v.nome = to_string(var_temp_qnt);
-    v.tipo = tipo;
+    // Armazena o tipo C correto para a geração de código final.
+    v.tipo = tipo_c;
     v.id = genId();
     variaveis.insert(v);
 
@@ -287,6 +292,7 @@ Variavel getVariavel(const string& nome_var, bool turnOffError = false)
 }
 
 // 2. Altere a assinatura de declararFuncao para aceitar a string de parâmetros C
+// A nova versão, mais simples e correta
 void declararFuncao(atributos& $1, string tipos, string retorno, string c_params_traducao) {
     for (const Funcao& func : funcoes) {
         if (func.nome == $1.label && func.parametros == tipos) {
@@ -302,11 +308,15 @@ void declararFuncao(atributos& $1, string tipos, string retorno, string c_params
     f.nome = $1.label;
     f.tipo_retorno = retorno;
     f.parametros = tipos;
-    f.c_parametros = c_params_traducao; // Armazena a string C correta
     f.id = genId();
-    genPrototipo(f); // genPrototipo agora usará a string correta
+
+    // --- LÓGICA NOVA E SIMPLIFICADA ---
+    // Remove o ") {\n" do final da string de tradução dos parâmetros C.
+    string params_limpo = replace(c_params_traducao, ") {\n", "");
+    // Gera o protótipo diretamente com os parâmetros C já prontos.
+    f.prototipo = f.tipo_retorno + " " + f.id + "(" + params_limpo + ");\n";
+
     funcoes.insert(f);
-    $1.traducao = $1.label;
 }
 
 Funcao getFuncao(const string& nome_funcao, const string& tipos)
@@ -526,11 +536,18 @@ string convertImplicit(atributos a, atributos b, Variavel v)
         {
             return a.traducao + b.traducao + "\t" + v.id + " = (float) " + b.label + ";\n";
         }
+        // Correção pra string e char*
+        
+        else if (v.tipo == "string" && b.tipo == "char*")
+        {
+            return a.traducao + b.traducao + "\t" + v.id + " = " + b.label + ";\n";
+        }
         else
         {
             yyerror("atribuição incompatível (esperando " + v.tipo + ", recebeu " + b.tipo + ")");
         }
     }
+    // Para todos os casos válidos (tipos iguais ou string/char*), esta linha executa
     return a.traducao + b.traducao + "\t" + v.id + " = " + b.label + ";\n";
 }
 
