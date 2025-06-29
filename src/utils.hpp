@@ -93,6 +93,7 @@ int nColuna = 1;
 bool wdUsed = false;
 bool strCompared = false;
 bool vectorUsed = false;
+bool removeUsed = false;
 bool canBreak = false;
 bool canContinue = false;
 bool hasReturned = false;

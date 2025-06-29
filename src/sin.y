@@ -6,53 +6,72 @@
 #include <algorithm>
 #include "src/utils.hpp"
 
+// Em sintatico.y
 void genCodigo(string traducao) {
     // Cabeçalho padrão do C
     string codigo = "/*Compilador MAPHRA*/\n"
-                  "#include <string.h>\n"
-                  "#include <stdio.h>\n"
-                  "#include <stdlib.h>\n"
-                  "#include <time.h>\n"
-                  "#define bool int\n"
-                  "#define T 1\n"
-                  "#define F 0\n\n";
+                    "#include <string.h>\n"
+                    "#include <stdio.h>\n"
+                    "#include <stdlib.h>\n"
+                    "#include <time.h>\n"
+                    "#define bool int\n"
+                    "#define T 1\n"
+                    "#define F 0\n\n";
 
-    // Adiciona a definição da "struct Vetor" que foi gerada pelo parser
-	if (vectorUsed) {
-		codigo += structVetor;
-	}
+    if (vectorUsed) {
+        codigo += structVetor;
+    }
 
-	// Declarações de structs
-	for (const string& def : structDef) {
-		codigo += def;
-	}
+    for (const string& def : structDef) {
+        codigo += def;
+    }
 
-	// Protótipos de Funções
     for (const Funcao& func : funcoes) {
         codigo += func.prototipo;
     }
+
+    if (removeUsed) {
+        codigo += "void __maphra_remove_element(struct Vetor* v, int index);\n";
+    }
     codigo += "\n";
 
-    // Declarações de Variáveis Globais
     for (const Variavel& var : variaveis) {
         if (var.ehDinamico) {
             codigo += "struct Vetor " + var.id;
         } else {
             codigo += var.tipo + " " + var.id;
         }
-		if (!isdigit(var.nome[0])) {
-			 codigo += "; // " + var.nome + "\n";
-		} else {
-			codigo += ";\n";
-		}
+        if (!isdigit(var.nome[0])) {
+             codigo += "; // " + var.nome + "\n";
+        } else {
+            codigo += ";\n";
+        }
     }
     
-    // Adiciona a função de comparação de string e o código traduzido
-	if (strCompared) {
-		codigo += "\n" + genStringcmp();
-	}
+    if (strCompared) {
+        codigo += "\n" + genStringcmp();
+    }
     codigo += "\n" + traducao;
     
+    // --- CORREÇÃO APLICADA AQUI ---
+    // A string agora está no formato C/C++ tradicional, que o Yacc entende.
+    if (removeUsed) {
+        string remove_func_code =
+            "\nvoid __maphra_remove_element(struct Vetor* v, int index) {\n"
+            "    if (v == NULL || v->tamanho == 0 || index < 0 || index >= v->tamanho) {\n"
+            "        return;\n"
+            "    }\n"
+            "    int elementos_para_mover = v->tamanho - index - 1;\n"
+            "    if (elementos_para_mover > 0) {\n"
+            "        char* dest = (char*)v->data + (index * v->tam_elemento);\n"
+            "        char* src = (char*)v->data + ((index + 1) * v->tam_elemento);\n"
+            "        memmove(dest, src, elementos_para_mover * v->tam_elemento);\n"
+            "    }\n"
+            "    v->tamanho--;\n"
+            "}\n";
+        codigo += remove_func_code;
+    }
+
     // Imprime o código final
     cout << codigo << endl;
 }
@@ -70,7 +89,7 @@ void genCodigo(string traducao) {
 %token TK_WHEELDECIDE TK_OPTION
 %token TK_FUNCAO TK_RETURN TK_NULL TK_STRUCT
 %token TK_BIND TK_THIS
-%token TK_APPEND TK_LEN
+%token TK_APPEND TK_LEN TK_REMOVE 
 
 %start S
 
@@ -877,6 +896,22 @@ E 			: BLOCO
 
 					// A tradução simplesmente acessa o campo .tamanho da struct Vetor.
 					$$.traducao = $1.traducao + "\t" + $$.label + " = " + $1.label + ".tamanho;\n";
+				} else if ($3.label == "remove") { // <-- ADICIONE ESTE BLOCO 'ELSE IF'
+					removeUsed = true;
+					if (!v.ehDinamico) {
+						yyerror("O método 'remove' só pode ser chamado em um vetor dinâmico.");
+					}
+					if ($5.tipo != "int") { // $5 é CALL_ARGS
+						yyerror("O método 'remove' espera um argumento do tipo inteiro (o índice).");
+					}
+
+					// remove() é um procedimento, não retorna valor.
+					$$.tipo = "void";
+					
+					// A tradução gera uma chamada para nossa função auxiliar.
+					// Passamos o endereço do nosso vetor (&) pois a função espera um ponteiro.
+					$$.traducao = $1.traducao + $5.traducaoAlt + "\t__maphra_remove_element(&" + $1.label + ", " + $5.label + ");\n";
+
 				} else {				
 					Metodo m = getMetodo($3.label, v.tipo, $5.tipo);
 					$5.traducao = ($5.traducao == ");\n") ? v.id + $5.traducao : v.id + ", " + $5.traducao;
@@ -1095,8 +1130,12 @@ METHOD      : TK_ID
 			{
 				$$.label = "append";
 			}
-			| TK_LEN
-            { $$.label = "len"; }
+			| TK_LEN { 
+				$$.label = "len"; 
+			}
+			| TK_REMOVE { 
+				$$.label = "remove"; 
+			}
             ;
 
 inicializacao_lista:
