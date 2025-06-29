@@ -42,8 +42,8 @@ struct Funcao
     string nome;
     string prototipo;
     string tipo_retorno;
-    string parametros;   // Representação interna, ex: "vector<struct bar>"
-    string c_parametros; // Representação C, ex: "struct Vetor t1"
+    string parametros;   
+    string c_parametros;
     string id;
 };
 bool operator<(const Funcao& a, const Funcao& b)
@@ -58,7 +58,7 @@ struct Metodo
     string tipo_retorno;
     string parametros;
     string id;
-    string tipo_objeto; // tipo do objeto que chama o método
+    string tipo_objeto; 
 };
 bool operator<(const Metodo& a, const Metodo& b)
 {
@@ -137,15 +137,12 @@ string genLabel()
     return "L" + to_string(label_qnt++);
 }
 
-// Verifica se o tipo é um tipo padrão da linguagem (int, float, char*, bool, string)
-// Se for, retorna true. Caso contrário, é um tipo de struct definido pelo usuário.
 bool isDefaultType(const string& tipo) {
     return tipo == "int" || tipo == "float" || tipo == "char*" || tipo == "bool" || tipo == "string";
 }
 
 void genPrototipo(Funcao& f)
 {
-    // Se não há parâmetros, o protótipo é simples (usa void).
     if (f.parametros.empty())
     {
         f.prototipo = f.tipo_retorno + " " + f.id + "(void);\n";
@@ -156,7 +153,6 @@ void genPrototipo(Funcao& f)
     vector<string> param_types = split(f.parametros, " ");
     bool first = true;
 
-    // Itera sobre cada tipo de parâmetro da assinatura da função.
     for (const auto& type : param_types)
     {
         if (type.empty()) continue; // Pula tokens vazios do split.
@@ -167,20 +163,14 @@ void genPrototipo(Funcao& f)
 
         string c_type;
 
-        // Verifica se é um tipo de vetor (ex: "int[]", "bar[]").
         if (type.length() > 2 && type.substr(type.length() - 2) == "[]")
         {
-            // Em C, todo vetor dinâmico é um "struct Vetor".
             c_type = "struct Vetor";
         }
-        // Verifica se é um tipo de struct da nossa linguagem (ex: "bar").
-        // isDefaultType trata int, float, etc. O que não for, é struct.
         else if (!isDefaultType(type))
         {
-            // Em C, precisa do prefixo "struct".
             c_type = "struct " + type;
         }
-        // É um tipo primitivo (int, float, char*) que já é válido em C.
         else
         {
             c_type = type;
@@ -200,15 +190,12 @@ string genTempCode(string tipo)
     {
         yyerror("Erro Critico: Nao ha escopo ativo para declarar a variavel temporaria.");
     }
-    // Substitui 'string' por 'char*' em qualquer lugar no nome do tipo.
-    // Isso corrige tanto "string" quanto "string*".
     string tipo_c = replace(tipo, "string", "char*");
 
     map<string, Variavel>& escopo_atual = pilha_escopos.back();
 
     Variavel v;
     v.nome = to_string(var_temp_qnt);
-    // Armazena o tipo C correto para a geração de código final.
     v.tipo = tipo_c;
     v.id = genId();
     variaveis.insert(v);
@@ -253,7 +240,6 @@ void declararVariavel(const string& nome_var, const string& tipo_var, const stri
     v.tamanho = tamanho;
     v.numDimensoes = numDimensoes; // Armazena o número de dimensões
     
-    // Simplificação: se tem dimensões, é dinâmico.
     if (numDimensoes > 0) {
         v.ehDinamico = true;
     }
@@ -262,7 +248,6 @@ void declararVariavel(const string& nome_var, const string& tipo_var, const stri
     escopo_atual[nome_var] = v;
 }
 
-// busca variavel no escopo
 Variavel getVariavel(const string& nome_var, bool turnOffError = false)
 {
     if (pilha_escopos.empty())
@@ -293,8 +278,6 @@ Variavel getVariavel(const string& nome_var, bool turnOffError = false)
     return v_erro;
 }
 
-// 2. Altere a assinatura de declararFuncao para aceitar a string de parâmetros C
-// A nova versão, mais simples e correta
 void declararFuncao(atributos& $1, string tipos, string retorno, string c_params_traducao) {
     for (const Funcao& func : funcoes) {
         if (func.nome == $1.label && func.parametros == tipos) {
@@ -312,10 +295,7 @@ void declararFuncao(atributos& $1, string tipos, string retorno, string c_params
     f.parametros = tipos;
     f.id = genId();
 
-    // --- LÓGICA NOVA E SIMPLIFICADA ---
-    // Remove o ") {\n" do final da string de tradução dos parâmetros C.
     string params_limpo = replace(c_params_traducao, ") {\n", "");
-    // Gera o protótipo diretamente com os parâmetros C já prontos.
     f.prototipo = f.tipo_retorno + " " + f.id + "(" + params_limpo + ");\n";
 
     funcoes.insert(f);
@@ -323,15 +303,8 @@ void declararFuncao(atributos& $1, string tipos, string retorno, string c_params
 
 Funcao getFuncao(const string& nome_funcao, const string& tipos)
 {
-    // Normaliza a string de tipos de argumento para busca
-    // Ex: "bar[] int" -> "bar[] int"
-    // Ex: "struct Vetor int" -> "bar[] int" (aqui é o pulo do gato)
-    // Atualmente, sua E:TK_ID já faz a conversão para "bar[]", então não precisamos
-    // de normalização complexa aqui, apenas o casamento exato.
     for (const Funcao& func : funcoes)
     {
-        // A checagem agora deve funcionar porque E:TK_ID cria o tipo "bar[]"
-        // e ARGS cria o tipo "bar[]" para o parâmetro da função.
         if (func.nome == nome_funcao && func.parametros == tipos)
         {
             return func;
@@ -517,7 +490,6 @@ void makeOp(atributos& $$, atributos $1, atributos $2, atributos $3)
     }
     if ($1.tipo != $3.tipo)
     {
-        // converte tudo para float
         $1.traducao += ($1.tipo != "float") ? "\t" + $$.label + " = (float) " + $1.label + ";\n" : "";
         $3.traducao += ($3.tipo != "float") ? "\t" + $$.label + " = (float) " + $3.label + ";\n" : "";
     }
@@ -538,7 +510,6 @@ string convertImplicit(atributos a, atributos b, Variavel v)
         {
             return a.traducao + b.traducao + "\t" + v.id + " = (float) " + b.label + ";\n";
         }
-        // Correção pra string e char*
         
         else if (v.tipo == "string" && b.tipo == "char*")
         {
@@ -549,7 +520,6 @@ string convertImplicit(atributos a, atributos b, Variavel v)
             yyerror("atribuição incompatível (esperando " + v.tipo + ", recebeu " + b.tipo + ")");
         }
     }
-    // Para todos os casos válidos (tipos iguais ou string/char*), esta linha executa
     return a.traducao + b.traducao + "\t" + v.id + " = " + b.label + ";\n";
 }
 
@@ -577,7 +547,7 @@ bool checkIsPossible(string t1, string t2)
 bool isInteger(const string& s) {
     if (s.empty()) return false;
     size_t start = (s[0] == '-' || s[0] == '+') ? 1 : 0;
-    if (start == s.size()) return false; // Only sign, no digits
+    if (start == s.size()) return false;
     for (size_t i = start; i < s.size(); ++i) {
         if (!std::isdigit(s[i])) return false;
     }
@@ -659,16 +629,8 @@ string genStringcmp() {
         "\treturn T;\n}\n";
 }
 
-// Função auxiliar que gera o código C para a operação append
-// e REGISTRA as variáveis temporárias que cria.
-// Em utils.hpp ou no topo de sin.y
-// Função auxiliar que gera o código C para a operação append
-// usando if/goto e aritmética de ponteiros.
-// src/utils.hpp
-
 string append_code(string vet_id, string tipo_base, string val_label) {
 
-    // --- Setup: Nomes para variáveis temporárias e labels ---
     string l_realloc_fim = genLabel();      
     string l_ternario_else = genLabel();    
     string l_ternario_fim = genLabel();     
@@ -676,20 +638,16 @@ string append_code(string vet_id, string tipo_base, string val_label) {
     string cond_realloc = genTempCode("bool");    
     string nova_capacidade = genTempCode("int");
     string cond_nova_cap = genTempCode("bool");
-    // --- Novos temporários para 3AC ---
     string tam_bytes = genTempCode("size_t");
     string novo_dado_ptr = genTempCode("void*");
     string cast_ptr = genTempCode(tipo_base + "*");
     string dest_ptr = genTempCode(tipo_base + "*");
-    // ---
 
     string code; 
 
-    // 1. Verifica se precisa realocar
     code += "\t" + cond_realloc + " = " + vet_id + ".tamanho == " + vet_id + ".capacidade;\n";
     code += "\tif (!" + cond_realloc + ") goto " + l_realloc_fim + ";\n";
 
-    // 2. Bloco que substitui o operador ternário
     code += "\t" + cond_nova_cap + " = " + vet_id + ".capacidade == 0;\n";
     code += "\tif (!" + cond_nova_cap + ") goto " + l_ternario_else + ";\n";
     code += "\t" + nova_capacidade + " = 8;\n";
@@ -698,57 +656,114 @@ string append_code(string vet_id, string tipo_base, string val_label) {
     code += "\t" + nova_capacidade + " = " + vet_id + ".capacidade * 2;\n";
     code += l_ternario_fim + ":\n";
 
-    // 3. Realiza a realocação de memória (em 3 endereços)
     code += "\t" + tam_bytes + " = " + nova_capacidade + " * " + vet_id + ".tam_elemento;\n";
     code += "\t" + novo_dado_ptr + " = realloc(" + vet_id + ".data, " + tam_bytes + ");\n";
     code += "\t" + vet_id + ".data = " + novo_dado_ptr + ";\n";
     code += "\t" + vet_id + ".capacidade = " + nova_capacidade + ";\n";
 
-    // 4. Label de destino para quando não precisa realocar
     code += l_realloc_fim + ":\n";
 
-    // 5. Bloco de atribuição (em 3 endereços)
     code += "\t" + cast_ptr + " = (" + tipo_base + "*)" + vet_id + ".data;\n";
     code += "\t" + dest_ptr + " = " + cast_ptr + " + " + vet_id + ".tamanho;\n";
     code += "\t*" + dest_ptr + " = " + val_label + ";\n";
 
 
-    // 6. Incrementa o tamanho do vetor
     code += "\t" + vet_id + ".tamanho = " + vet_id + ".tamanho + 1;\n";
 
     return code;
 }
 
-// Em sintatico.y, dentro da seção %{ ... %}
 
 // Função que implementa a lógica do slice
 string genSliceFunction() {
     return
         "\nstruct Vetor __maphra_slice(struct Vetor* original, int start, int end) {\n"
-        "    // 1. Lida com índices omitidos\n"
-        "    if (start < 0) start = 0;\n"
-        "    if (end < 0) end = original->tamanho;\n\n"
-        "    // 2. Validação de limites (bounds checking)\n"
-        "    if (start > end || start > original->tamanho || end > original->tamanho) {\n"
-        "        printf(\"Erro de execução: slice fora dos limites.\\n\");\n"
-        "        exit(1);\n"
-        "    }\n\n"
-        "    // 3. Cria o novo vetor (o slice)\n"
         "    struct Vetor novo_vetor;\n"
-        "    int num_elementos = end - start;\n"
+        "    int num_elementos;\n"
+        "    size_t total_bytes;\n"
+        "    char* src_ptr;\n"
+        "    int temp_cond;\n"
+        "    int temp_val;\n"
+        "    char* temp_ptr;\n\n"
+        "    temp_cond = start < 0;\n"
+        "    if (temp_cond) goto L_START_DEFAULT;\n"
+        "    goto L_START_OK;\n"
+        "L_START_DEFAULT:\n"
+        "    start = 0;\n"
+        "L_START_OK:\n"
+        "    temp_cond = end < 0;\n"
+        "    if (temp_cond) goto L_END_DEFAULT;\n"
+        "    goto L_END_OK;\n"
+        "L_END_DEFAULT:\n"
+        "    temp_ptr = (char*)original; temp_ptr = temp_ptr + 8; /*offsetof(tamanho)*/\n"
+        "    end = *((int*)temp_ptr);\n"
+        "L_END_OK:\n\n"
+        "    temp_ptr = (char*)original; temp_ptr = temp_ptr + 8; /*offsetof(tamanho)*/\n"
+        "    temp_val = *((int*)temp_ptr);\n"
+        "    temp_cond = start > end;\n"
+        "    if (temp_cond) goto L_BOUNDS_ERROR;\n"
+        "    temp_cond = start > temp_val;\n"
+        "    if (temp_cond) goto L_BOUNDS_ERROR;\n"
+        "    temp_cond = end > temp_val;\n"
+        "    if (temp_cond) goto L_BOUNDS_ERROR;\n"
+        "    goto L_BOUNDS_OK;\n"
+        "L_BOUNDS_ERROR:\n"
+        "    printf(\"Erro de execução: slice fora dos limites.\\n\");\n"
+        "    exit(1);\n"
+        "L_BOUNDS_OK:\n\n"
+        "    num_elementos = end - start;\n"
         "    novo_vetor.tamanho = num_elementos;\n"
         "    novo_vetor.capacidade = num_elementos;\n"
-        "    novo_vetor.tam_elemento = original->tam_elemento;\n\n"
-        "    // 4. Aloca memória e copia os elementos\n"
-        "    if (num_elementos > 0) {\n"
-        "        size_t total_bytes = num_elementos * original->tam_elemento;\n"
-        "        novo_vetor.data = malloc(total_bytes);\n"
-        "        char* src_ptr = (char*)original->data + (start * original->tam_elemento);\n"
-        "        memcpy(novo_vetor.data, src_ptr, total_bytes);\n"
-        "    } else {\n"
-        "        novo_vetor.data = NULL;\n"
-        "    }\n\n"
-        "    // 5. Retorna o novo vetor (como uma cópia)\n"
+        "    temp_ptr = (char*)original; temp_ptr = temp_ptr + 16; /*offsetof(tam_elemento)*/\n"
+        "    novo_vetor.tam_elemento = *((size_t*)temp_ptr);\n\n"
+        "    temp_cond = num_elementos > 0;\n"
+        "    if (temp_cond) goto L_ALLOC_DATA;\n"
+        "    novo_vetor.data = NULL;\n"
+        "    goto L_ALLOC_END;\n"
+        "L_ALLOC_DATA:\n"
+        "    total_bytes = num_elementos * novo_vetor.tam_elemento;\n"
+        "    novo_vetor.data = malloc(total_bytes);\n"
+        "    temp_ptr = (char*)original; /*offsetof(data) is 0*/\n"
+        "    temp_ptr = *((char**)temp_ptr);\n"
+        "    temp_val = start * novo_vetor.tam_elemento;\n"
+        "    src_ptr = temp_ptr + temp_val;\n"
+        "    memcpy(novo_vetor.data, src_ptr, total_bytes);\n"
+        "L_ALLOC_END:\n\n"
         "    return novo_vetor;\n"
+        "}\n";
+}
+
+string genRemoveCode(){
+    return
+        "\nvoid __maphra_remove_element(struct Vetor* v, int index) {\n"
+        "    int t_cond, t_size, t_move, t_offset_dest, t_offset_src;\n"
+        "    char* p_base; char *p_dest, *p_src;\n"
+        "\n"
+        "    t_cond = v == NULL; if(t_cond) goto L_REM_EXIT;\n"
+        "    t_size = *((int*)((char*)v + 8)); // v->tamanho\n"
+        "    t_cond = t_size == 0; if(t_cond) goto L_REM_EXIT;\n"
+        "    t_cond = index < 0; if(t_cond) goto L_REM_EXIT;\n"
+        "    t_cond = index >= t_size; if(t_cond) goto L_REM_EXIT;\n"
+        "\n"
+        "    t_move = t_size - index; t_move = t_move - 1;\n"
+        "    t_cond = t_move > 0; if(!t_cond) goto L_REM_NO_MOVE;\n"
+        "\n"
+        "    p_base = *((char**)((char*)v + 0)); // v->data\n"
+        "    size_t elem_size = *((size_t*)((char*)v + 16)); // v->tam_elemento\n"
+        "    t_offset_dest = index * elem_size;\n"
+        "    p_dest = p_base + t_offset_dest;\n"
+        "\n"
+        "    t_offset_src = index + 1; t_offset_src = t_offset_src * elem_size;\n"
+        "    p_src = p_base + t_offset_src;\n"
+        "\n"
+        "    size_t bytes_to_move = t_move * elem_size;\n"
+        "    memmove(p_dest, p_src, bytes_to_move);\n"
+        "\n"
+        "L_REM_NO_MOVE:\n"
+        "    t_size = t_size - 1;\n"
+        "    *((int*)((char*)v + 8)) = t_size; // v->tamanho = t_size\n"
+        "\n"
+        "L_REM_EXIT:\n"
+        "    return;\n"
         "}\n";
 }

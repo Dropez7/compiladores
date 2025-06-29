@@ -59,20 +59,7 @@ void genCodigo(string traducao) {
     // --- CORREÇÃO APLICADA AQUI ---
     // A string agora está no formato C/C++ tradicional, que o Yacc entende.
     if (removeUsed) {
-        string remove_func_code =
-            "\nvoid __maphra_remove_element(struct Vetor* v, int index) {\n"
-            "    if (v == NULL || v->tamanho == 0 || index < 0 || index >= v->tamanho) {\n"
-            "        return;\n"
-            "    }\n"
-            "    int elementos_para_mover = v->tamanho - index - 1;\n"
-            "    if (elementos_para_mover > 0) {\n"
-            "        char* dest = (char*)v->data + (index * v->tam_elemento);\n"
-            "        char* src = (char*)v->data + ((index + 1) * v->tam_elemento);\n"
-            "        memmove(dest, src, elementos_para_mover * v->tam_elemento);\n"
-            "    }\n"
-            "    v->tamanho--;\n"
-            "}\n";
-        codigo += remove_func_code;
+        codigo += genRemoveCode();
     }
 
     if (sliceUsed) { // <-- ADICIONAR
@@ -484,107 +471,100 @@ COMANDO 	: E ';'
             }
 			| TK_LACO '(' TK_TIPO TK_ID TK_IN E ')' 
 			{
-				// --- AÇÃO NO MEIO DA REGRA ---
-				// Este código executa DEPOIS de ler o ')', mas ANTES de analisar o BLOCO.
 				entrar_escopo(); // 1. Entra no escopo do laço.
 				declararVariavel($4.label, $3.tipo, ""); // 2. Declara a variável DENTRO do novo escopo.
 			}
 			BLOCO
 			{
-				// --- AÇÃO FINAL CORRIGIDA ---
-				
-				// 1. Obtenha a variável do item (ex: 'p'), que foi declarada no escopo do laço.
 				Variavel item_var = getVariavel($4.label);
 
-				// 2. Verificações de tipo usando os atributos de $6 (o 'E' para 'palavras') DIRETAMENTE.
-				//    NÃO chame getVariavel($6.label) aqui!
 				if (!$6.ehDinamico) { 
 					yyerror("O laço 'for-in' só pode ser usado com vetores dinâmicos."); 
 				}
 				
-				// Compara o tipo do item ('p') com o tipo base da coleção ('palavras')
-				// Usamos $6.id_original, que agora guarda o tipo base (ex: "char*")
 				if (item_var.tipo != $6.id_original) {
 					yyerror("O tipo da variável '" + item_var.nome + "' (" + item_var.tipo + ") é incompatível com o tipo base do vetor (" + $6.id_original + ").");
 				}
 
-				// 3. Geração de Código (usando os atributos corretos)
 				string inicio_laco = genLabel();
 				string fim_laco = genLabel();
 				string iterador = genTempCode("int");
-				string colecao_id = $6.label; // Pega o identificador C ("t0") diretamente de E.
+				string colecao_id = $6.label;
+
+				string p_data = genTempCode("char*");
+				string t_offset = genTempCode("int");
+				string p_element = genTempCode("char*");
+				string code_acesso = 
+					"\t" + p_data + " = " + colecao_id + ".data;\n" +
+					"\t" + t_offset + " = " + iterador + " * " + colecao_id + ".tam_elemento;\n" +
+					"\t" + p_element + " = " + p_data + " + " + t_offset + ";\n" +
+					"\t" + item_var.id + " = *((" + item_var.tipo + "*)" + p_element + ");\n";
 
 				$$.traducao = $6.traducao +
 							"\t" + iterador + " = 0;\n" +
 							inicio_laco + ":\n" +
 							"\tif (" + iterador + " >= " + colecao_id + ".tamanho) goto " + fim_laco + ";\n" +
-							// O cast usa o tipo da variável do item, que já está correto.
-							"\t" + item_var.id + " = *(((" + item_var.tipo + "*)" + colecao_id + ".data) + " + iterador + ");\n" +
-							$9.traducao + // Código do BLOCO
+							code_acesso + 
+							$9.traducao + 
 							"\t" + iterador + " = " + iterador + " + 1;\n" +
 							"\tgoto " + inicio_laco + ";\n" +
 							fim_laco + ":\n";
 				
-				sair_escopo(); // Sai do escopo do laço.
+				sair_escopo(); 
 			}
-			// REGRA CORRIGIDA PARA: for (Ponto p in meus_pontos) { ... }
 			| TK_LACO '(' TK_ID TK_ID TK_IN E ')'
 			{
-				// --- AÇÃO NO MEIO DA REGRA ---
 				entrar_escopo();
 				TipoStruct ts = getStruct($3.label);
 				declararVariavel($4.label, ts.id, "");
 			}
 			BLOCO
-				{
-					// --- AÇÃO FINAL CORRIGIDA ---
-					
-					// 1. Obtenha a variável do item (ex: 'p'), que foi declarada no escopo do laço.
-					Variavel item_var = getVariavel($4.label);
+			{
+				Variavel item_var = getVariavel($4.label);
 
-					// 2. Verificações de tipo usando os atributos de $6 (o 'E' para 'palavras') DIRETAMENTE.
-					//    NÃO chame getVariavel($6.label) aqui!
-					if (!$6.ehDinamico) { 
-						yyerror("O laço 'for-in' só pode ser usado com vetores dinâmicos."); 
-					}
-					
-					// Compara o tipo do item ('p') com o tipo base da coleção ('palavras')
-					// Usamos $6.id_original, que agora guarda o tipo base (ex: "char*")
-					if (item_var.tipo != $6.id_original) {
-						yyerror("O tipo da variável '" + item_var.nome + "' (" + item_var.tipo + ") é incompatível com o tipo base do vetor (" + $6.id_original + ").");
-					}
-
-					// 3. Geração de Código (usando os atributos corretos)
-					string inicio_laco = genLabel();
-					string fim_laco = genLabel();
-					string iterador = genTempCode("int");
-					string colecao_id = $6.label; // Pega o identificador C ("t0") diretamente de E.
-
-					$$.traducao = $6.traducao +
-								"\t" + iterador + " = 0;\n" +
-								inicio_laco + ":\n" +
-								"\tif (" + iterador + " >= " + colecao_id + ".tamanho) goto " + fim_laco + ";\n" +
-								// O cast usa o tipo da variável do item, que já está correto.
-								"\t" + item_var.id + " = *(((" + item_var.tipo + "*)" + colecao_id + ".data) + " + iterador + ");\n" +
-								$9.traducao + // Código do BLOCO
-								"\t" + iterador + " = " + iterador + " + 1;\n" +
-								"\tgoto " + inicio_laco + ";\n" +
-								fim_laco + ":\n";
-					
-					sair_escopo(); // Sai do escopo do laço.
+				if (!$6.ehDinamico) { 
+					yyerror("O laço 'for-in' só pode ser usado com vetores dinâmicos."); 
 				}
+				
+				if (item_var.tipo != $6.id_original) {
+					yyerror("O tipo da variável '" + item_var.nome + "' (" + item_var.tipo + ") é incompatível com o tipo base do vetor (" + $6.id_original + ").");
+				}
+
+				string inicio_laco = genLabel();
+				string fim_laco = genLabel();
+				string iterador = genTempCode("int");
+				string colecao_id = $6.label;
+
+				string p_data = genTempCode("char*");
+				string t_offset = genTempCode("int");
+				string p_element = genTempCode("char*");
+				string code_acesso = 
+					"\t" + p_data + " = " + colecao_id + ".data;\n" +
+					"\t" + t_offset + " = " + iterador + " * " + colecao_id + ".tam_elemento;\n" +
+					"\t" + p_element + " = " + p_data + " + " + t_offset + ";\n" +
+					"\t" + item_var.id + " = *((" + item_var.tipo + "*)" + p_element + ");\n";
+
+				$$.traducao = $6.traducao +
+							"\t" + iterador + " = 0;\n" +
+							inicio_laco + ":\n" +
+							"\tif (" + iterador + " >= " + colecao_id + ".tamanho) goto " + fim_laco + ";\n" +
+							code_acesso + 
+							$9.traducao + 
+							"\t" + iterador + " = " + iterador + " + 1;\n" +
+							"\tgoto " + inicio_laco + ";\n" +
+							fim_laco + ":\n";
+				
+				sair_escopo(); 
+			}
 			| TK_SWITCH E '{' BLOCO_SWITCH '}'
 			{
 				if ($4.tipo != "" && $4.tipo != $2.tipo) {
 					yyerror("tipo da expressão do switch deve ser igual ao tipo dos cases");
 				}
 				auto conds = split($4.traducao, "\nCONDICOES\n");
-				// reorganiza o vetor de tras pra frente
 				reverse(conds.begin(), conds.end());
-				// coloca o ultimo elemento no inicio
 				conds.insert(conds.begin(), conds.back());
 				conds.pop_back();
-				// cria uma string com as condições
 				string condicoes = "";
 				for (const string& cond : conds) {
 					if (cond != "") {
@@ -990,14 +970,11 @@ E 			: BLOCO
 			{
 				Variavel v = getVariavel($1.label, true);
 				if (v.id == "<error_id>") {
-					v.id = ($3.label == "append") ? $1.label : "*" + $1.label;
+					v.id = $1.label; 
 					
-					// --- LÓGICA CORRIGIDA ---
-					// Trata char* como um caso especial: ele É o tipo base.
 					if ($1.tipo == "char*") {
 						v.tipo = "char*";
 					} else {
-						// Para outros ponteiros (ex: Ponto*, Retangulo*), a lógica antiga funciona.
 						v.tipo = replace($1.tipo, "*", "");
 					}
 
@@ -1024,34 +1001,22 @@ E 			: BLOCO
 							yyerror("Tentativa de adicionar um valor simples a uma matriz. Use a sintaxe de lista []."); 
 						}
 
-						// --- NOVA LÓGICA DE CONVERSÃO ---
+						string val_label = $5.label; 
+						string cast_code = "";
 
-						string val_label = $5.label; // Nome do temporário C com o valor a ser inserido.
-						string cast_code = "";       // Código extra para a conversão, se necessário.
-
-						// Compara o tipo base do vetor (v.tipo) com o tipo do valor ($5.tipo)
 						if (v.tipo != $5.tipo) {
-							// Se os tipos são diferentes, checa se a conversão é possível.
 							if (checkIsPossible(v.tipo, $5.tipo)) {
-								// Conversão é possível! Ex: vetor de int, valor float.
-								// 1. Gera um novo temporário para guardar o valor convertido.
-								//    O tipo do temporário deve ser o tipo do vetor.
 								string casted_temp = genTempCode(v.tipo);
 
-								// 2. Gera o código C que faz o cast.
 								cast_code = "\t" + casted_temp + " = (" + v.tipo + ")" + $5.label + ";\n";
 
-								// 3. O valor a ser inserido agora é o temporário com o cast.
 								val_label = casted_temp;
 
 							} else {
-								// Se os tipos são diferentes E a conversão NÃO é possível, então é um erro.
 								yyerror("Tipo do valor '" + $5.label + "' (" + $5.tipo + ") incompatível com o tipo do vetor '" + v.nome + "' (" + v.tipo + ").");
 							}
 						}
 					
-					// O código de tradução final agora inclui o código do argumento,
-					// o código do cast (se houver), e a chamada para a função append.
 					$$.traducao = $5.traducaoAlt + cast_code + append_code(v.id, v.tipo, val_label);
 				}
 				} else if ($3.label == "len") { 
@@ -1062,39 +1027,34 @@ E 			: BLOCO
 						yyerror("O método 'len' não aceita argumentos.");
 					}
 
-					// O resultado de len() é um inteiro.
 					$$.tipo = "int";
 					$$.label = genTempCode("int");
 
-					// A tradução simplesmente acessa o campo .tamanho da struct Vetor.
 					$$.traducao = $1.traducao + "\t" + $$.label + " = " + $1.label + ".tamanho;\n";
 				} else if ($3.label == "remove") { // <-- ADICIONE ESTE BLOCO 'ELSE IF'
 					removeUsed = true;
 					if (!v.ehDinamico) {
 						yyerror("O método 'remove' só pode ser chamado em um vetor dinâmico.");
 					}
-					if ($5.tipo != "int") { // $5 é CALL_ARGS
+					if ($5.tipo != "int") {
 						yyerror("O método 'remove' espera um argumento do tipo inteiro (o índice).");
 					}
 
-					// remove() é um procedimento, não retorna valor.
 					$$.tipo = "void";
 					
-					// A tradução gera uma chamada para nossa função auxiliar.
-					// Passamos o endereço do nosso vetor (&) pois a função espera um ponteiro.
 					$$.traducao = $1.traducao + $5.traducaoAlt + "\t__maphra_remove_element(&" + $1.label + ", " + $5.label + ");\n";
 
-				} else {				
+				} else {  // Caso para o 'bind'
 					Metodo m = getMetodo($3.label, v.tipo, $5.tipo);
-					$5.traducao = ($5.traducao == ");\n") ? v.id + $5.traducao : v.id + ", " + $5.traducao;
+					string final_args = ($5.traducao == ");\n") ? v.id + $5.traducao : v.id + ", " + $5.traducao;
 					
 					if (m.tipo_retorno != "void") {
 						$$.label = genTempCode(m.tipo_retorno);
-						$$.traducao = $1.traducao + "\t" + $$.label + " = " + m.id + "(" + $5.traducao;
+						$$.traducao = $1.traducao + $5.traducaoAlt + "\t" + $$.label + " = " + m.id + "(" + final_args;
 						$$.tipo = m.tipo_retorno;
 					} else {
 						$$.tipo = "void";
-						$$.traducao = $1.traducao + $5.traducaoAlt + "\t" + m.id + "(" +  $5.traducao;
+						$$.traducao = $1.traducao + $5.traducaoAlt + "\t" + m.id + "(" + final_args;
 					}
 				}
 			}
@@ -1312,101 +1272,65 @@ E 			: BLOCO
 			;
 
 acesso: TK_ID '[' E ']'  // Acesso a um elemento: v[i]
-			{
-				Variavel v = getVariavel($1.label);
-				if (!v.ehDinamico) { yyerror("A variável '" + v.nome + "' não é um vetor dinâmico."); }
-				if ($3.tipo != "int") { yyerror("O índice de um vetor deve ser um inteiro."); }
+      {
+          Variavel v = getVariavel($1.label);
+          if (!v.ehDinamico) { yyerror("A variável '" + v.nome + "' não é um vetor dinâmico."); }
+          if ($3.tipo != "int") { yyerror("O índice de um vetor deve ser um inteiro."); }
 
-				// O resultado do acesso é um valor, então o colocamos em um temporário
-				$$.tipo = v.tipo;
-				$$.label = genTempCode(v.tipo);
-				$$.traducao = $3.traducao; // Código para calcular o índice
-				$$.traducao += "\t" + $$.label + " = * (((" + v.tipo + "*)" + v.id + ".data) + " + $3.label + ");\n";
-				// Não é mais um vetor, então ehDinamico é falso
-				$$.ehDinamico = false;
-			}
-			| TK_ID '[' optional_e ':' optional_e ']' // Slice: v[a:b]
-			{
-				sliceUsed = true; // Flag para gerar a função auxiliar
-				Variavel v = getVariavel($1.label);
-				if (!v.ehDinamico) { yyerror("Slices só podem ser feitos em vetores dinâmicos."); }
+          $$.traducao = $3.traducao; // Código para calcular o índice
+          $$.tipo = v.tipo;
+          $$.label = genTempCode(v.tipo);
+          
+          string p_data = genTempCode("char*");
+          string t_offset = genTempCode("int");
+          string p_element = genTempCode("char*");
+          
+          $$.traducao += "\t" + p_data + " = " + v.id + ".data;\n";
+          $$.traducao += "\t" + t_offset + " = " + $3.label + " * " + v.id + ".tam_elemento;\n";
+          $$.traducao += "\t" + p_element + " = " + p_data + " + " + t_offset + ";\n";
+          $$.traducao += "\t" + $$.label + " = *((" + v.tipo + "*)" + p_element + ");\n";
+          
+          $$.ehDinamico = false;
+      }
+      | TK_ID '[' optional_e ':' optional_e ']' // Slice: v[a:b]
+      {
+          // A implementação anterior para slice já gera uma chamada de função,
+          // o que é um bom nível de abstração e já se parece com 3AC.
+          // Vamos manter como está, pois a complexidade foi movida para a função C.
+          sliceUsed = true; 
+          Variavel v = getVariavel($1.label);
+          if (!v.ehDinamico) { yyerror("Slices só podem ser feitos em vetores dinâmicos."); }
 
-				string inicio = $3.label;
-				string fim = $5.label;
+          string inicio = $3.label;
+          string fim = $5.label;
+          string temp_trad = "";
 
-				// Se o início ou o fim não foram especificados, usamos valores padrão.
-				// Usamos "-1" como um marcador para a nossa função C saber que o valor foi omitido.
-				if (inicio.empty()) {
-					inicio = genTempCode("int");
-					$$.traducao += "\t" + inicio + " = -1;\n";
-				} else {
-					if ($3.tipo != "int") yyerror("Índice de slice deve ser inteiro.");
-					$$.traducao += $3.traducao;
-				}
+          if (inicio.empty()) {
+              inicio = genTempCode("int");
+              temp_trad += "\t" + inicio + " = -1;\n";
+          } else {
+              if ($3.tipo != "int") yyerror("Índice de slice deve ser inteiro.");
+              temp_trad += $3.traducao;
+          }
 
-				if (fim.empty()) {
-					fim = genTempCode("int");
-					$$.traducao += "\t" + fim + " = -1;\n";
-				} else {
-					if ($5.tipo != "int") yyerror("Índice de slice deve ser inteiro.");
-					$$.traducao += $5.traducao;
-				}
+          if (fim.empty()) {
+              fim = genTempCode("int");
+              temp_trad += "\t" + fim + " = -1;\n";
+          } else {
+              if ($5.tipo != "int") yyerror("Índice de slice deve ser inteiro.");
+              temp_trad += $5.traducao;
+          }
 
-				// O resultado de um slice é um NOVO vetor.
-				$$.label = genTempCode("struct Vetor");
-				$$.traducao += "\t" + $$.label + " = __maphra_slice(&" + v.id + ", " + inicio + ", " + fim + ");\n";
-				
-				// Propaga os atributos do novo vetor
-				$$.ehDinamico = true;
-				$$.tipo = v.tipo + "[]"; // O tipo ainda é um vetor do mesmo tipo base
-				$$.id_original = v.tipo;
-			}
-			;
+          $$.traducao = temp_trad;
+          $$.label = genTempCode("struct Vetor");
+          $$.traducao += "\t" + $$.label + " = __maphra_slice(&" + v.id + ", " + inicio + ", " + fim + ");\n";
+          
+          $$.ehDinamico = true;
+          $$.tipo = v.tipo + "[]"; 
+          $$.id_original = v.tipo;
+      }
+      ;
 
-/* acesso_vetor: TK_ID '[' E ']'
-			{
-				Variavel v = getVariavel($1.label);
-				if (!v.ehDinamico) { yyerror("A variável '" + v.nome + "' não é um vetor dinâmico."); }
-				if ($3.tipo != "int") { yyerror("O índice de um vetor deve ser um inteiro."); }
-
-				$$.id_original = $1.label;
-				$$.nivelAcesso = 1;
-
-				if ($$.nivelAcesso < v.numDimensoes) {
-					$$.tipo = "__vetor";
-					$$.label = genTempCode("struct Vetor");
-					$$.traducao = $1.traducao + $3.traducao;
-					$$.traducao += "\t" + $$.label + " = *(((struct Vetor*)" + v.id + ".data) + " + $3.label + ");\n";
-				} else {
-					$$.tipo = v.tipo;
-					$$.label = genTempCode(v.tipo);
-					$$.traducao = $1.traducao + $3.traducao;
-					$$.traducao += "\t" + $$.label + " = *((( " + v.tipo + "* )" + v.id + ".data) + " + $3.label + ");\n";
-				}
-			}
-			| acesso_vetor '[' E ']'
-			{
-				$$.id_original = $1.id_original;
-				Variavel v = getVariavel($$.id_original);
-				if ($1.tipo != "__vetor") { yyerror("Tentativa de acesso multidimensional em um não-vetor."); }
-				if ($3.tipo != "int") { yyerror("O índice de um vetor deve ser um inteiro."); }
-
-				$$.nivelAcesso = $1.nivelAcesso + 1;
-				string acesso_anterior_label = $1.label;
-
-				if ($$.nivelAcesso < v.numDimensoes) {
-					$$.tipo = "__vetor";
-					$$.label = genTempCode("struct Vetor");
-					$$.traducao = $1.traducao + $3.traducao;
-					$$.traducao += "\t" + $$.label + " = *(((struct Vetor*)" + acesso_anterior_label + ".data) + " + $3.label + ");\n";
-				} else {
-					$$.tipo = v.tipo;
-					$$.label = genTempCode(v.tipo);
-					$$.traducao = $1.traducao + $3.traducao;
-					$$.traducao += "\t" + $$.label + " = *((( " + v.tipo + "* )" + acesso_anterior_label + ".data) + " + $3.label + ");\n";
-				}
-			}
-		; */
 optional_e: E
 			{
 				$$ = $1;
