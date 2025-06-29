@@ -94,6 +94,7 @@ bool wdUsed = false;
 bool strCompared = false;
 bool vectorUsed = false;
 bool removeUsed = false;
+bool sliceUsed = false;
 bool canBreak = false;
 bool canContinue = false;
 bool hasReturned = false;
@@ -716,4 +717,38 @@ string append_code(string vet_id, string tipo_base, string val_label) {
     code += "\t" + vet_id + ".tamanho = " + vet_id + ".tamanho + 1;\n";
 
     return code;
+}
+
+// Em sintatico.y, dentro da seção %{ ... %}
+
+// Função que implementa a lógica do slice
+string genSliceFunction() {
+    return
+        "\nstruct Vetor __maphra_slice(struct Vetor* original, int start, int end) {\n"
+        "    // 1. Lida com índices omitidos\n"
+        "    if (start < 0) start = 0;\n"
+        "    if (end < 0) end = original->tamanho;\n\n"
+        "    // 2. Validação de limites (bounds checking)\n"
+        "    if (start > end || start > original->tamanho || end > original->tamanho) {\n"
+        "        printf(\"Erro de execução: slice fora dos limites.\\n\");\n"
+        "        exit(1);\n"
+        "    }\n\n"
+        "    // 3. Cria o novo vetor (o slice)\n"
+        "    struct Vetor novo_vetor;\n"
+        "    int num_elementos = end - start;\n"
+        "    novo_vetor.tamanho = num_elementos;\n"
+        "    novo_vetor.capacidade = num_elementos;\n"
+        "    novo_vetor.tam_elemento = original->tam_elemento;\n\n"
+        "    // 4. Aloca memória e copia os elementos\n"
+        "    if (num_elementos > 0) {\n"
+        "        size_t total_bytes = num_elementos * original->tam_elemento;\n"
+        "        novo_vetor.data = malloc(total_bytes);\n"
+        "        char* src_ptr = (char*)original->data + (start * original->tam_elemento);\n"
+        "        memcpy(novo_vetor.data, src_ptr, total_bytes);\n"
+        "    } else {\n"
+        "        novo_vetor.data = NULL;\n"
+        "    }\n\n"
+        "    // 5. Retorna o novo vetor (como uma cópia)\n"
+        "    return novo_vetor;\n"
+        "}\n";
 }

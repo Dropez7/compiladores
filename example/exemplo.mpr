@@ -1,10 +1,15 @@
 func main() {
-    string palavras[];
-    palavras.append("Compilador");
-    palavras.append("é");
-    palavras.append("legal");
-
-    for (string p in palavras) {
-        print(p);
+    int numeros[];
+    numeros.append(10);
+    numeros.append(20);
+    numeros.append(30);
+    numeros.append(40);
+    numeros.append(50);
+    
+    // Cria um novo vetor 'meio' com os elementos [20, 30, 40]
+    int meio[] = numeros[1:4]; 
+    
+    for(int n in meio) {
+        print(n); // Deve imprimir 20, 30, 40
     }
 }

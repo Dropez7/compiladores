@@ -33,6 +33,9 @@ void genCodigo(string traducao) {
     if (removeUsed) {
         codigo += "void __maphra_remove_element(struct Vetor* v, int index);\n";
     }
+	if (sliceUsed) { // <-- ADICIONAR
+        codigo += "struct Vetor __maphra_slice(struct Vetor* original, int start, int end);\n";
+    }
     codigo += "\n";
 
     for (const Variavel& var : variaveis) {
@@ -71,6 +74,11 @@ void genCodigo(string traducao) {
             "}\n";
         codigo += remove_func_code;
     }
+
+    if (sliceUsed) { // <-- ADICIONAR
+        codigo += genSliceFunction();
+    }
+
 
     // Imprime o código final
     cout << codigo << endl;
@@ -519,15 +527,6 @@ COMANDO 	: E ';'
 				
 				sair_escopo(); // Sai do escopo do laço.
 			}
-			| TK_LACO '(' TK_ID TK_ID TK_IN E ')'
-			{
-				// --- AÇÃO NO MEIO DA REGRA ---
-				// Este código executa DEPOIS de ler o ')', mas ANTES de analisar o BLOCO.
-				entrar_escopo(); // 1. Entra no escopo do laço.
-				TipoStruct ts = getStruct($3.label);
-				declararVariavel($4.label, ts.id, ""); // 2. Declara a variável DENTRO do novo escopo.
-			}
-
 			// REGRA CORRIGIDA PARA: for (Ponto p in meus_pontos) { ... }
 			| TK_LACO '(' TK_ID TK_ID TK_IN E ')'
 			{
@@ -1261,7 +1260,31 @@ E 			: BLOCO
 				}
 				$$.traducao += "\t" + v.id + ".tam_elemento = sizeof(" + sizeof_arg + ");\n";
 			}
-			| acesso_vetor '=' E 
+			| TK_TIPO TK_ID lista_colchetes_vazios '=' E
+			{
+				// 1. O lado direito (RHS) deve ser um vetor ou uma lista
+				if (!$5.ehDinamico && $5.tipo != "__vetor") {
+					yyerror("A inicialização de um vetor dinâmico requer outro vetor ou uma lista [].");
+				}
+
+				// 2. Declara o novo vetor (LHS, ex: 'meio')
+				string tipo_base = ($5.id_original.empty()) ? $1.tipo : $5.id_original;
+				declararVariavel($2.label, tipo_base, "");
+
+				Variavel& v = pilha_escopos.back()[$2.label];
+				v.ehDinamico = true;
+				v.numDimensoes = $3.nivelAcesso;
+				variaveis.erase(v);
+				variaveis.insert(v);
+
+				// 3. Gera o código de atribuição. O RHS ($5) já contém o código
+				//    para criar o vetor (seja por slice ou lista).
+				//    Só precisamos atribuir o resultado ao novo vetor 'v'.
+				$$.traducao = $5.traducao;
+				$$.traducao += "\t" + v.id + " = " + $5.label + "; // " + v.nome + "\n";
+			}
+			/* | acesso_vetor '=' E  */
+			| acesso '=' E
 			{
 				string tipo_destino = $1.tipo; 
 				string tipo_origem = $3.tipo; 
@@ -1281,11 +1304,119 @@ E 			: BLOCO
 
 				$$.traducao = $1.traducao + $3.traducao + "\t" + $1.label + " = " + rhs_label + ";\n";
 			}
-			| acesso_vetor 
+			/* | acesso_vetor  */
+			| acesso
 			| inicializacao_lista {
 				$$ = $1; // Apenas repassa os atributos.
 			}
 			;
+
+acesso: TK_ID '[' E ']'  // Acesso a um elemento: v[i]
+			{
+				Variavel v = getVariavel($1.label);
+				if (!v.ehDinamico) { yyerror("A variável '" + v.nome + "' não é um vetor dinâmico."); }
+				if ($3.tipo != "int") { yyerror("O índice de um vetor deve ser um inteiro."); }
+
+				// O resultado do acesso é um valor, então o colocamos em um temporário
+				$$.tipo = v.tipo;
+				$$.label = genTempCode(v.tipo);
+				$$.traducao = $3.traducao; // Código para calcular o índice
+				$$.traducao += "\t" + $$.label + " = * (((" + v.tipo + "*)" + v.id + ".data) + " + $3.label + ");\n";
+				// Não é mais um vetor, então ehDinamico é falso
+				$$.ehDinamico = false;
+			}
+			| TK_ID '[' optional_e ':' optional_e ']' // Slice: v[a:b]
+			{
+				sliceUsed = true; // Flag para gerar a função auxiliar
+				Variavel v = getVariavel($1.label);
+				if (!v.ehDinamico) { yyerror("Slices só podem ser feitos em vetores dinâmicos."); }
+
+				string inicio = $3.label;
+				string fim = $5.label;
+
+				// Se o início ou o fim não foram especificados, usamos valores padrão.
+				// Usamos "-1" como um marcador para a nossa função C saber que o valor foi omitido.
+				if (inicio.empty()) {
+					inicio = genTempCode("int");
+					$$.traducao += "\t" + inicio + " = -1;\n";
+				} else {
+					if ($3.tipo != "int") yyerror("Índice de slice deve ser inteiro.");
+					$$.traducao += $3.traducao;
+				}
+
+				if (fim.empty()) {
+					fim = genTempCode("int");
+					$$.traducao += "\t" + fim + " = -1;\n";
+				} else {
+					if ($5.tipo != "int") yyerror("Índice de slice deve ser inteiro.");
+					$$.traducao += $5.traducao;
+				}
+
+				// O resultado de um slice é um NOVO vetor.
+				$$.label = genTempCode("struct Vetor");
+				$$.traducao += "\t" + $$.label + " = __maphra_slice(&" + v.id + ", " + inicio + ", " + fim + ");\n";
+				
+				// Propaga os atributos do novo vetor
+				$$.ehDinamico = true;
+				$$.tipo = v.tipo + "[]"; // O tipo ainda é um vetor do mesmo tipo base
+				$$.id_original = v.tipo;
+			}
+			;
+
+/* acesso_vetor: TK_ID '[' E ']'
+			{
+				Variavel v = getVariavel($1.label);
+				if (!v.ehDinamico) { yyerror("A variável '" + v.nome + "' não é um vetor dinâmico."); }
+				if ($3.tipo != "int") { yyerror("O índice de um vetor deve ser um inteiro."); }
+
+				$$.id_original = $1.label;
+				$$.nivelAcesso = 1;
+
+				if ($$.nivelAcesso < v.numDimensoes) {
+					$$.tipo = "__vetor";
+					$$.label = genTempCode("struct Vetor");
+					$$.traducao = $1.traducao + $3.traducao;
+					$$.traducao += "\t" + $$.label + " = *(((struct Vetor*)" + v.id + ".data) + " + $3.label + ");\n";
+				} else {
+					$$.tipo = v.tipo;
+					$$.label = genTempCode(v.tipo);
+					$$.traducao = $1.traducao + $3.traducao;
+					$$.traducao += "\t" + $$.label + " = *((( " + v.tipo + "* )" + v.id + ".data) + " + $3.label + ");\n";
+				}
+			}
+			| acesso_vetor '[' E ']'
+			{
+				$$.id_original = $1.id_original;
+				Variavel v = getVariavel($$.id_original);
+				if ($1.tipo != "__vetor") { yyerror("Tentativa de acesso multidimensional em um não-vetor."); }
+				if ($3.tipo != "int") { yyerror("O índice de um vetor deve ser um inteiro."); }
+
+				$$.nivelAcesso = $1.nivelAcesso + 1;
+				string acesso_anterior_label = $1.label;
+
+				if ($$.nivelAcesso < v.numDimensoes) {
+					$$.tipo = "__vetor";
+					$$.label = genTempCode("struct Vetor");
+					$$.traducao = $1.traducao + $3.traducao;
+					$$.traducao += "\t" + $$.label + " = *(((struct Vetor*)" + acesso_anterior_label + ".data) + " + $3.label + ");\n";
+				} else {
+					$$.tipo = v.tipo;
+					$$.label = genTempCode(v.tipo);
+					$$.traducao = $1.traducao + $3.traducao;
+					$$.traducao += "\t" + $$.label + " = *((( " + v.tipo + "* )" + acesso_anterior_label + ".data) + " + $3.label + ");\n";
+				}
+			}
+		; */
+optional_e: E
+			{
+				$$ = $1;
+			}
+			| /* vazio */
+			{
+				$$.label = "";
+			}
+			;	
+
 lista_colchetes_vazios: '[' ']'
 			{
 				// Caso base: encontrou o primeiro []. O nível/dimensão é 1.
@@ -1355,51 +1486,6 @@ lista_elementos: E
 			}
 			;
 			
-acesso_vetor: TK_ID '[' E ']'
-			{
-				Variavel v = getVariavel($1.label);
-				if (!v.ehDinamico) { yyerror("A variável '" + v.nome + "' não é um vetor dinâmico."); }
-				if ($3.tipo != "int") { yyerror("O índice de um vetor deve ser um inteiro."); }
-
-				$$.id_original = $1.label;
-				$$.nivelAcesso = 1;
-
-				if ($$.nivelAcesso < v.numDimensoes) {
-					$$.tipo = "__vetor";
-					$$.label = genTempCode("struct Vetor");
-					$$.traducao = $1.traducao + $3.traducao;
-					$$.traducao += "\t" + $$.label + " = *(((struct Vetor*)" + v.id + ".data) + " + $3.label + ");\n";
-				} else {
-					$$.tipo = v.tipo;
-					$$.label = genTempCode(v.tipo);
-					$$.traducao = $1.traducao + $3.traducao;
-					$$.traducao += "\t" + $$.label + " = *((( " + v.tipo + "* )" + v.id + ".data) + " + $3.label + ");\n";
-				}
-			}
-			| acesso_vetor '[' E ']'
-			{
-				$$.id_original = $1.id_original;
-				Variavel v = getVariavel($$.id_original);
-				if ($1.tipo != "__vetor") { yyerror("Tentativa de acesso multidimensional em um não-vetor."); }
-				if ($3.tipo != "int") { yyerror("O índice de um vetor deve ser um inteiro."); }
-
-				$$.nivelAcesso = $1.nivelAcesso + 1;
-				string acesso_anterior_label = $1.label;
-
-				if ($$.nivelAcesso < v.numDimensoes) {
-					$$.tipo = "__vetor";
-					$$.label = genTempCode("struct Vetor");
-					$$.traducao = $1.traducao + $3.traducao;
-					$$.traducao += "\t" + $$.label + " = *(((struct Vetor*)" + acesso_anterior_label + ".data) + " + $3.label + ");\n";
-				} else {
-					$$.tipo = v.tipo;
-					$$.label = genTempCode(v.tipo);
-					$$.traducao = $1.traducao + $3.traducao;
-					$$.traducao += "\t" + $$.label + " = *((( " + v.tipo + "* )" + acesso_anterior_label + ".data) + " + $3.label + ");\n";
-				}
-			}
-		;
-			
 OP_PONTO    : TK_ID
 			{
 				// Caso base para o início de uma cadeia de acesso, ex: 'foo'
@@ -1419,7 +1505,8 @@ OP_PONTO    : TK_ID
 				$$.tipo = split(tipoMetodo, "|")[0];
 				$$.traducao = "";
 			}
-			| acesso_vetor
+			/* | acesso_vetor */
+			| acesso
 			{
 				$$ = $1; // Repassa os atributos do acesso ao vetor.
 			}
