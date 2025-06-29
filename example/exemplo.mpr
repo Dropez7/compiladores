@@ -7,9 +7,10 @@ struct bar {
 }
 
 func main() {
-    bar foo
-    foo.x = 10
-    int v[][]
-    v.append([foo.x, 15, 20])
-    print(v[0][0])
+    bar v[]
+    bar b
+    b.x = 5
+    v.append(b)
+    v[0].x = 10
+    print(v[0].x)
 }

@@ -614,26 +614,32 @@ string genStringcmp() {
 // Em utils.hpp ou no topo de sin.y
 // Função auxiliar que gera o código C para a operação append
 // usando if/goto e aritmética de ponteiros.
+// src/utils.hpp
+
 string append_code(string vet_id, string tipo_base, string val_label) {
 
     // --- Setup: Nomes para variáveis temporárias e labels ---
-    string l_realloc_fim = genLabel();      // Label para pular a realocação se houver espaço
-    string l_ternario_else = genLabel();    // Label para o "else" do ternário
-    string l_ternario_fim = genLabel();     // Label para o fim da lógica do ternário
+    string l_realloc_fim = genLabel();      
+    string l_ternario_else = genLabel();    
+    string l_ternario_fim = genLabel();     
 
-    string cond_realloc = genTempCode("bool");    // Registra os temporários
+    string cond_realloc = genTempCode("bool");    
     string nova_capacidade = genTempCode("int");
     string cond_nova_cap = genTempCode("bool");
+    // --- Novos temporários para 3AC ---
+    string tam_bytes = genTempCode("size_t");
+    string novo_dado_ptr = genTempCode("void*");
+    string cast_ptr = genTempCode(tipo_base + "*");
+    string dest_ptr = genTempCode(tipo_base + "*");
+    // ---
 
-    string code; // String para construir o código C
+    string code; 
 
-    // --- Geração de Código ---
-
-    // 1. Verifica se precisa realocar memória
+    // 1. Verifica se precisa realocar
     code += "\t" + cond_realloc + " = " + vet_id + ".tamanho == " + vet_id + ".capacidade;\n";
     code += "\tif (!" + cond_realloc + ") goto " + l_realloc_fim + ";\n";
 
-    // 2. Bloco que substitui o operador ternário (?:) por if/goto
+    // 2. Bloco que substitui o operador ternário
     code += "\t" + cond_nova_cap + " = " + vet_id + ".capacidade == 0;\n";
     code += "\tif (!" + cond_nova_cap + ") goto " + l_ternario_else + ";\n";
     code += "\t" + nova_capacidade + " = 8;\n";
@@ -642,22 +648,20 @@ string append_code(string vet_id, string tipo_base, string val_label) {
     code += "\t" + nova_capacidade + " = " + vet_id + ".capacidade * 2;\n";
     code += l_ternario_fim + ":\n";
 
-    // 3. Realiza a realocação de memória
-    code += "\t" + vet_id + ".data = realloc(" + vet_id + ".data, " + nova_capacidade + " * " + vet_id + ".tam_elemento);\n";
+    // 3. Realiza a realocação de memória (em 3 endereços)
+    code += "\t" + tam_bytes + " = " + nova_capacidade + " * " + vet_id + ".tam_elemento;\n";
+    code += "\t" + novo_dado_ptr + " = realloc(" + vet_id + ".data, " + tam_bytes + ");\n";
+    code += "\t" + vet_id + ".data = " + novo_dado_ptr + ";\n";
     code += "\t" + vet_id + ".capacidade = " + nova_capacidade + ";\n";
 
     // 4. Label de destino para quando não precisa realocar
     code += l_realloc_fim + ":\n";
 
-    // 5. Bloco que substitui o acesso com colchetes [] por aritmética de ponteiros
-    if (tipo_base == "struct Vetor") {
-        // Atribui uma struct Vetor inteira (para matrizes)
-        code += "\t*(((struct Vetor*)" + vet_id + ".data) + " + vet_id + ".tamanho) = " + val_label + ";\n";
-    }
-    else {
-        // Atribui um valor simples (int, float, etc.)
-        code += "\t*((( " + tipo_base + "* )" + vet_id + ".data) + " + vet_id + ".tamanho) = " + val_label + ";\n";
-    }
+    // 5. Bloco de atribuição (em 3 endereços)
+    code += "\t" + cast_ptr + " = (" + tipo_base + "*)" + vet_id + ".data;\n";
+    code += "\t" + dest_ptr + " = " + cast_ptr + " + " + vet_id + ".tamanho;\n";
+    code += "\t*" + dest_ptr + " = " + val_label + ";\n";
+
 
     // 6. Incrementa o tamanho do vetor
     code += "\t" + vet_id + ".tamanho = " + vet_id + ".tamanho + 1;\n";
