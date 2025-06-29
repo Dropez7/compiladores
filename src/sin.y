@@ -83,7 +83,7 @@ void genCodigo(string traducao) {
 %token TK_MAIN TK_ID TK_PRINT TK_INPUT
 %token TK_TIPO TK_UNARIO TK_ABREVIADO
 %token TK_RELACIONAL
-%token TK_IF TK_ELSE TK_LACO TK_DO
+%token TK_IF TK_ELSE TK_LACO TK_DO TK_IN 
 %token TK_SWITCH TK_DEFAULT
 %token TK_BREAK TK_CONTINUE
 %token TK_WHEELDECIDE TK_OPTION
@@ -94,6 +94,7 @@ void genCodigo(string traducao) {
 %start S
 
 %right '='
+%left TK_ELSE
 %right TK_UNARIO
 %right TK_ABREVIADO
 %left '?'
@@ -473,6 +474,106 @@ COMANDO 	: E ';'
                     $9.traducao + $7.traducao + "\tgoto " + inicio + ";\n" +
                     fim + ":\n";
             }
+			| TK_LACO '(' TK_TIPO TK_ID TK_IN E ')' 
+			{
+				// --- AÇÃO NO MEIO DA REGRA ---
+				// Este código executa DEPOIS de ler o ')', mas ANTES de analisar o BLOCO.
+				entrar_escopo(); // 1. Entra no escopo do laço.
+				declararVariavel($4.label, $3.tipo, ""); // 2. Declara a variável DENTRO do novo escopo.
+			}
+			BLOCO
+			{
+				// --- AÇÃO FINAL CORRIGIDA ---
+				
+				// 1. Obtenha a variável do item (ex: 'p'), que foi declarada no escopo do laço.
+				Variavel item_var = getVariavel($4.label);
+
+				// 2. Verificações de tipo usando os atributos de $6 (o 'E' para 'palavras') DIRETAMENTE.
+				//    NÃO chame getVariavel($6.label) aqui!
+				if (!$6.ehDinamico) { 
+					yyerror("O laço 'for-in' só pode ser usado com vetores dinâmicos."); 
+				}
+				
+				// Compara o tipo do item ('p') com o tipo base da coleção ('palavras')
+				// Usamos $6.id_original, que agora guarda o tipo base (ex: "char*")
+				if (item_var.tipo != $6.id_original) {
+					yyerror("O tipo da variável '" + item_var.nome + "' (" + item_var.tipo + ") é incompatível com o tipo base do vetor (" + $6.id_original + ").");
+				}
+
+				// 3. Geração de Código (usando os atributos corretos)
+				string inicio_laco = genLabel();
+				string fim_laco = genLabel();
+				string iterador = genTempCode("int");
+				string colecao_id = $6.label; // Pega o identificador C ("t0") diretamente de E.
+
+				$$.traducao = $6.traducao +
+							"\t" + iterador + " = 0;\n" +
+							inicio_laco + ":\n" +
+							"\tif (" + iterador + " >= " + colecao_id + ".tamanho) goto " + fim_laco + ";\n" +
+							// O cast usa o tipo da variável do item, que já está correto.
+							"\t" + item_var.id + " = *(((" + item_var.tipo + "*)" + colecao_id + ".data) + " + iterador + ");\n" +
+							$9.traducao + // Código do BLOCO
+							"\t" + iterador + " = " + iterador + " + 1;\n" +
+							"\tgoto " + inicio_laco + ";\n" +
+							fim_laco + ":\n";
+				
+				sair_escopo(); // Sai do escopo do laço.
+			}
+			| TK_LACO '(' TK_ID TK_ID TK_IN E ')'
+			{
+				// --- AÇÃO NO MEIO DA REGRA ---
+				// Este código executa DEPOIS de ler o ')', mas ANTES de analisar o BLOCO.
+				entrar_escopo(); // 1. Entra no escopo do laço.
+				TipoStruct ts = getStruct($3.label);
+				declararVariavel($4.label, ts.id, ""); // 2. Declara a variável DENTRO do novo escopo.
+			}
+
+			// REGRA CORRIGIDA PARA: for (Ponto p in meus_pontos) { ... }
+			| TK_LACO '(' TK_ID TK_ID TK_IN E ')'
+			{
+				// --- AÇÃO NO MEIO DA REGRA ---
+				entrar_escopo();
+				TipoStruct ts = getStruct($3.label);
+				declararVariavel($4.label, ts.id, "");
+			}
+			BLOCO
+				{
+					// --- AÇÃO FINAL CORRIGIDA ---
+					
+					// 1. Obtenha a variável do item (ex: 'p'), que foi declarada no escopo do laço.
+					Variavel item_var = getVariavel($4.label);
+
+					// 2. Verificações de tipo usando os atributos de $6 (o 'E' para 'palavras') DIRETAMENTE.
+					//    NÃO chame getVariavel($6.label) aqui!
+					if (!$6.ehDinamico) { 
+						yyerror("O laço 'for-in' só pode ser usado com vetores dinâmicos."); 
+					}
+					
+					// Compara o tipo do item ('p') com o tipo base da coleção ('palavras')
+					// Usamos $6.id_original, que agora guarda o tipo base (ex: "char*")
+					if (item_var.tipo != $6.id_original) {
+						yyerror("O tipo da variável '" + item_var.nome + "' (" + item_var.tipo + ") é incompatível com o tipo base do vetor (" + $6.id_original + ").");
+					}
+
+					// 3. Geração de Código (usando os atributos corretos)
+					string inicio_laco = genLabel();
+					string fim_laco = genLabel();
+					string iterador = genTempCode("int");
+					string colecao_id = $6.label; // Pega o identificador C ("t0") diretamente de E.
+
+					$$.traducao = $6.traducao +
+								"\t" + iterador + " = 0;\n" +
+								inicio_laco + ":\n" +
+								"\tif (" + iterador + " >= " + colecao_id + ".tamanho) goto " + fim_laco + ";\n" +
+								// O cast usa o tipo da variável do item, que já está correto.
+								"\t" + item_var.id + " = *(((" + item_var.tipo + "*)" + colecao_id + ".data) + " + iterador + ");\n" +
+								$9.traducao + // Código do BLOCO
+								"\t" + iterador + " = " + iterador + " + 1;\n" +
+								"\tgoto " + inicio_laco + ";\n" +
+								fim_laco + ":\n";
+					
+					sair_escopo(); // Sai do escopo do laço.
+				}
 			| TK_SWITCH E '{' BLOCO_SWITCH '}'
 			{
 				if ($4.tipo != "" && $4.tipo != $2.tipo) {
@@ -655,6 +756,46 @@ E 			: BLOCO
 					" = !" + $1.label + ";\n";
 				$$.tipo = "bool";
 			}
+			// a = expr1 (if_condition) else expr2
+			| E TK_IF E TK_ELSE E
+			{
+				// --- a) Verificação de Tipos ---
+
+				// A condição ($3) deve ser um booleano.
+				if ($3.tipo != "bool") {
+					yyerror("A condição da expressão condicional (if) deve ser do tipo booleano.");
+				}
+
+				// Os dois possíveis resultados ($1 e $5) devem ser de tipos compatíveis.
+				string tipo_resultado;
+				if ($1.tipo == $5.tipo) {
+					tipo_resultado = $1.tipo;
+				} else if (($1.tipo == "int" && $5.tipo == "float") || ($1.tipo == "float" && $5.tipo == "int")) {
+					tipo_resultado = "float"; // Promove para float
+				} else {
+					yyerror("Tipos incompativeis nos resultados da expressão condicional: " + $1.tipo + " e " + $5.tipo);
+				}
+
+				// --- b) Geração de Código ---
+
+				string label_false = genLabel();
+				string label_fim = genLabel();
+				
+				// Cria uma variável temporária para guardar o resultado final.
+				$$.label = genTempCode(tipo_resultado);
+				$$.tipo = tipo_resultado;
+				
+				// Monta a tradução para C. A lógica é a mesma do ternário, mas os operandos mudam de lugar.
+				$$.traducao = $3.traducao +                                        // 1. Código da CONDIÇÃO ($3)
+							"\tif (!" + $3.label + ") goto " + label_false + ";\n" + // 2. Se a condição for falsa, pula
+							$1.traducao +                                        // 3. Código da expressão VERDADEIRA ($1)
+							"\t" + $$.label + " = " + $1.label + ";\n" +         // 4. Atribui o resultado VERDADEIRO
+							"\tgoto " + label_fim + ";\n" +                      // 5. Pula para o fim
+							label_false + ":\n" +                               // 6. Label para o bloco falso
+							$5.traducao +                                        // 7. Código da expressão FALSA ($5)
+							"\t" + $$.label + " = " + $5.label + ";\n" +         // 8. Atribui o resultado FALSO
+							label_fim + ":\n";                                  // 9. Label do fim
+			}
 			// int(3.14)
 			| TK_TIPO '(' E ')'
 			{
@@ -781,25 +922,27 @@ E 			: BLOCO
 			}
 			| TK_ID
 			{
-			Variavel v = getVariavel($1.label);
-			$$.label = v.id;
-			$$.tamanho = v.tamanho;
+				Variavel v = getVariavel($1.label);
+				$$.label = v.id;            // Identificador C (ex: "t0")
+				$$.tamanho = v.tamanho;
+				$$.ehDinamico = v.ehDinamico; // *** ADICIONAR: Passa a flag se é vetor dinâmico ***
+				
+				if (v.ehDinamico) {
+					// Para o 'for', precisamos do tipo base do vetor (ex: "char*", "struct Ponto")
+					// Vamos guardá-lo em 'id_original', que você já tem na struct atributos.
+					$$.id_original = v.tipo; 
 
-			// Se for um vetor dinâmico, o tipo para a checagem de assinatura
-			// da função deve indicar isso.
-			if (v.ehDinamico) {
-				// O tipo base pode ser "int" ou "struct bar"
-				string base_type = v.tipo;
-				// Se for um tipo struct, removemos o "struct " para a assinatura
-				// Ex: "struct bar" -> "bar"
-					if (base_type.rfind("struct ", 0) == 0) {
-						base_type = base_type.substr(7);
+					// Para checagem de tipo em chamadas de função, mantemos o formato "tipo[]"
+					string base_type_sig = v.tipo;
+					if (base_type_sig.rfind("struct ", 0) == 0) {
+						base_type_sig = base_type_sig.substr(7);
 					}
-				// A assinatura de tipo para a função será "bar[]" ou "int[]"
-				$$.tipo = base_type + "[]";
-			} else {
-				$$.tipo = v.tipo;
-			}
+					$$.tipo = base_type_sig + "[]";
+				} else {
+					// Se não for dinâmico, os tipos são os mesmos.
+					$$.tipo = v.tipo;
+					$$.id_original = v.tipo;
+				}
 			}
 			| TK_BREAK
 			{
@@ -849,7 +992,16 @@ E 			: BLOCO
 				Variavel v = getVariavel($1.label, true);
 				if (v.id == "<error_id>") {
 					v.id = ($3.label == "append") ? $1.label : "*" + $1.label;
-					v.tipo = replace($1.tipo, "*", "");
+					
+					// --- LÓGICA CORRIGIDA ---
+					// Trata char* como um caso especial: ele É o tipo base.
+					if ($1.tipo == "char*") {
+						v.tipo = "char*";
+					} else {
+						// Para outros ponteiros (ex: Ponto*, Retangulo*), a lógica antiga funciona.
+						v.tipo = replace($1.tipo, "*", "");
+					}
+
 					v.ehDinamico = $1.ehDinamico;
 					v.numDimensoes = $1.numDimensoes;
 				}
@@ -872,16 +1024,37 @@ E 			: BLOCO
 						if (v.numDimensoes != 1) { 
 							yyerror("Tentativa de adicionar um valor simples a uma matriz. Use a sintaxe de lista []."); 
 						}
-						if (v.tipo != $5.tipo && !checkIsPossible(v.tipo, $5.tipo)) { 
-							yyerror("Tipo do valor '" + $5.label + "' incompatível com o tipo do vetor '" + v.nome + "'.");
-						}
-						
-						string val_label = $5.label;
-						if (v.tipo != $5.tipo) { val_label = "(" + v.tipo + ")" + val_label; }
 
-						$$.traducao = $5.traducaoAlt;
-						$$.traducao += append_code(v.id, v.tipo, val_label);
-					}
+						// --- NOVA LÓGICA DE CONVERSÃO ---
+
+						string val_label = $5.label; // Nome do temporário C com o valor a ser inserido.
+						string cast_code = "";       // Código extra para a conversão, se necessário.
+
+						// Compara o tipo base do vetor (v.tipo) com o tipo do valor ($5.tipo)
+						if (v.tipo != $5.tipo) {
+							// Se os tipos são diferentes, checa se a conversão é possível.
+							if (checkIsPossible(v.tipo, $5.tipo)) {
+								// Conversão é possível! Ex: vetor de int, valor float.
+								// 1. Gera um novo temporário para guardar o valor convertido.
+								//    O tipo do temporário deve ser o tipo do vetor.
+								string casted_temp = genTempCode(v.tipo);
+
+								// 2. Gera o código C que faz o cast.
+								cast_code = "\t" + casted_temp + " = (" + v.tipo + ")" + $5.label + ";\n";
+
+								// 3. O valor a ser inserido agora é o temporário com o cast.
+								val_label = casted_temp;
+
+							} else {
+								// Se os tipos são diferentes E a conversão NÃO é possível, então é um erro.
+								yyerror("Tipo do valor '" + $5.label + "' (" + $5.tipo + ") incompatível com o tipo do vetor '" + v.nome + "' (" + v.tipo + ").");
+							}
+						}
+					
+					// O código de tradução final agora inclui o código do argumento,
+					// o código do cast (se houver), e a chamada para a função append.
+					$$.traducao = $5.traducaoAlt + cast_code + append_code(v.id, v.tipo, val_label);
+				}
 				} else if ($3.label == "len") { 
 					if (!v.ehDinamico) {
 						yyerror("O método 'len' só pode ser chamado em um vetor dinâmico.");
@@ -1035,9 +1208,10 @@ E 			: BLOCO
 			| TK_TIPO TK_ID lista_colchetes_vazios
 			{
 				vectorUsed = true;
-				string tipo_base = $1.label;
-				declararVariavel($2.label, tipo_base, "");
+				string tipo_base_linguagem = $1.label;
+				declararVariavel($2.label, tipo_base_linguagem, "");
 
+				// Acessa a variável recém-declarada para obter suas informações
 				Variavel& v = pilha_escopos.back()[$2.label];
 				v.ehDinamico = true;
 				v.numDimensoes = $3.nivelAcesso;
@@ -1048,13 +1222,14 @@ E 			: BLOCO
 				$$.traducao += "\t" + v.id + ".tamanho = 0;\n";
 				$$.traducao += "\t" + v.id + ".capacidade = 0;\n";
 				$$.traducao += "\t" + v.id + ".data = NULL;\n";
+				
 				string sizeof_arg;
 				if (v.numDimensoes > 1) {
-					// Se for 2D ou mais, o elemento é outro vetor.
 					sizeof_arg = "struct Vetor";
 				} else {
-					// Se for 1D, o elemento é do tipo base.
-					sizeof_arg = tipo_base;
+					// --- CORREÇÃO AQUI ---
+					// Use v.tipo, que já foi convertido para "char*", em vez de tipo_base_linguagem.
+					sizeof_arg = v.tipo;
 				}
 				$$.traducao += "\t" + v.id + ".tam_elemento = sizeof(" + sizeof_arg + ");\n";
 			}

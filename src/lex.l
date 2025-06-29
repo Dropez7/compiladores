@@ -30,6 +30,7 @@ BOOL T|F
 "if"        { nColuna += yyleng; return TK_IF; }
 "else"|"helcio"      { nColuna += yyleng; return TK_ELSE; }
 "for"       { nColuna += yyleng; canBreak = true; canContinue = true; return TK_LACO; }
+"in"        { nColuna += yyleng; return TK_IN; }
 "do"        { nColuna += yyleng; canBreak = true; canContinue = true; return TK_DO; }
 "break"     { nColuna += yyleng; return TK_BREAK; }
 "continue"  { nColuna += yyleng; return TK_CONTINUE; }
