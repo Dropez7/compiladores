@@ -373,7 +373,8 @@ COMANDO 	: E ';'
 					yyerror("condição deve ser do tipo booleano");
 				}
 				string label = genLabel();
-				$$.traducao = $2.traducao + "\tif (!" + $2.label + ") goto " + label + ";\n" + $3.traducao + label + ":\n";
+				string cond = genTempCode("bool");
+				$$.traducao = $2.traducao + "\t" + cond + " = !" + $2.label + ";\n\tif (" + cond + ") goto " + label + ";\n" + $3.traducao + label + ":\n";
 			}
 			| TK_IF E BLOCO TK_ELSE COMANDO
 			{
@@ -382,7 +383,8 @@ COMANDO 	: E ';'
 				}
 				string l1 = genLabel();
 				string l2 = genLabel();
-				$$.traducao = $2.traducao + "\tif (!" + $2.label + ") goto " + l1 + ";\n\t" +
+				string cond = genTempCode("bool")
+				$$.traducao = $2.traducao + "\t" + cond + " = !" + $2.label + ";\n\tif (" + cond + ") goto " + l1 + ";\n\t" +
 					$3.traducao + "\tgoto " + l2 + ";\n" +
 					l1 + ":\n\t" + $5.traducao + "\n" +
 					l2 + ":\n";
@@ -394,7 +396,8 @@ COMANDO 	: E ';'
 				string random = genTempCode("int");
 				
 				string meio = "\t" + cond + " = " + wd.count + " != 0;\n"
-				+ "\tif (!" + cond + ") goto " + wd.label + ";\n"
+				+ "\t" + cond " = !" + cond + ";\n"
+				+ "\tif (" + cond + ") goto " + wd.label + ";\n"
 				+ "\t" + random + " = rand();\n"
 				+ "\t" + wd.choice + " = " + random + " % " + wd.count + ";\n";
 				for (int i = 2; i <= wd.nCLAUSES; i++) {
@@ -418,7 +421,8 @@ COMANDO 	: E ';'
 				string fim = genLabel();
 
 				string meio = "\t" + cond + " = " + wd.count + " != 0;\n"
-				+ "\tif (!" + cond + ") goto " + fim + ";\n"
+				+ "\t" + cond + " = !" + cond + ";\n"
+				+ "\tif (" + cond + ") goto " + fim + ";\n"
 				+ "\t" + random + " = rand();\n"
 				+ "\t" + wd.choice + " = " + random + " % " + wd.count + ";\n";
 				for (int i = 2; i <= wd.nCLAUSES; i++) {
@@ -441,9 +445,10 @@ COMANDO 	: E ';'
 				}
 				string inicio = genLabel();
 				string fim = genLabel();
+				string cond = genTempCode("bool");
 				$3.traducao = replace($3.traducao, "CONTINUE", inicio);
 				$3.traducao = replace($3.traducao, "BREAK", fim);
-				$$.traducao = inicio + ":\n" + $2.traducao +  "\tif (!" + $2.label + ") goto " + fim + ";\n" +
+				$$.traducao = inicio + ":\n" + $2.traducao + "\t" + cond + " = !" + $2.label  +  ";\n\tif (" + cond + ") goto " + fim + ";\n" +
 					$3.traducao + "\tgoto " + inicio + ";\n" +
 					fim + ":\n"; 
 			}
@@ -456,9 +461,10 @@ COMANDO 	: E ';'
 				}
 				string inicio = genLabel();
 				string fim = genLabel();
+				string cond = genTempCode("bool");
 				$2.traducao = replace($2.traducao, "CONTINUE", inicio);
 				$2.traducao = replace($2.traducao, "BREAK", fim);
-				$$.traducao = inicio + ":\n" + $2.traducao + $4.traducao + "\tif (!" + $4.label + ") goto " + fim + ";\n" +
+				$$.traducao = inicio + ":\n" + $2.traducao + $4.traducao + "\t" + cond + " = !" + $4.label + ";\n\tif (" + cond + ") goto " + fim + ";\n" +
 					$3.traducao + "\tgoto " + inicio + ";\n" +
 					fim + ":\n";
 			}
@@ -475,10 +481,11 @@ COMANDO 	: E ';'
                 }
                 string inicio = genLabel();
                 string fim = genLabel();
+				string cond = genTempCode("bool");
 				$9.traducao = replace($9.traducao, "CONTINUE", inicio);
 				$9.traducao = replace($9.traducao, "BREAK", fim);
                 $$.traducao = $3.traducao + 
-                    inicio + ":\n" + $5.traducao + "\tif (!" + $5.label + ") goto " + fim + ";\n" +
+                    inicio + ":\n" + $5.traducao + "\t" + cond + " = !" + $5.label + ";\n\tif (" + cond + ") goto " + fim + ";\n" +
                     $9.traducao + $7.traducao + "\tgoto " + inicio + ";\n" +
                     fim + ":\n";
             }
@@ -640,13 +647,14 @@ BLOCO_DECIDE: TK_OPTION E COMANDO BLOCO_DECIDE
 				wd.nCLAUSES++;
 				string fim1 = genLabel();
 				string cond = genTempCode("bool");
+				string cond2 = genTempCode("bool");
 				string fim2 = genLabel();
-				$$.traducao = $2.traducao + "\tif(!" + $2.label +") goto " + fim1 + ";\n\t" 
+				$$.traducao = $2.traducao + + "\t" + cond + " = !" + $2.label + ";\n\tif (" + cond +") goto " + fim1 + ";\n\t" 
 				+ wd.guards + "[" + wd.count + "] = " + to_string(wd.nCLAUSES) + ";\n\t" 
 				+ wd.count + " = " + wd.count + "+ 1;\n\t" 
 				+ fim1 + ":\n" + $4.traducao + "placeholder" + to_string(wd.nCLAUSES) + "\t" 
-				+ cond + " = " + wd.guards + "[" + wd.choice + "] == " + to_string(wd.nCLAUSES) 
-				+ ";\n\tif(!" + cond + ") goto " + fim2 + ";\n" + $3.traducao
+				+ cond2 + " = " + wd.guards + "[" + wd.choice + "] != " + to_string(wd.nCLAUSES) 
+				+ ";\n\tif (" + cond2 + ") goto " + fim2 + ";\n" + $3.traducao
 				+ "\tgoto " + wd.label + ";\n" + fim2 + ":\n";
 				
 			}
@@ -779,14 +787,15 @@ E 			: BLOCO
 
 				string label_false = genLabel();
 				string label_fim = genLabel();
+				string cond = genTempCode("bool");
 				
 				// Cria uma variável temporária para guardar o resultado final.
 				$$.label = genTempCode(tipo_resultado);
 				$$.tipo = tipo_resultado;
 				
 				// Monta a tradução para C. A lógica é a mesma do ternário, mas os operandos mudam de lugar.
-				$$.traducao = $3.traducao +                                        // 1. Código da CONDIÇÃO ($3)
-							"\tif (!" + $3.label + ") goto " + label_false + ";\n" + // 2. Se a condição for falsa, pula
+				$$.traducao = $3.traducao + cond + " = !" $3.label + ";\n"       // 1. Código da CONDIÇÃO ($3)
+							"\tif (" + cond + ") goto " + label_false + ";\n" + // 2. Se a condição for falsa, pula
 							$1.traducao +                                        // 3. Código da expressão VERDADEIRA ($1)
 							"\t" + $$.label + " = " + $1.label + ";\n" +         // 4. Atribui o resultado VERDADEIRO
 							"\tgoto " + label_fim + ";\n" +                      // 5. Pula para o fim
@@ -1517,7 +1526,7 @@ OP_PONTO    : TK_ID
 				string accessor = is_lhs_pointer ? "->" : ".";
 
 				string struct_name;
-				if(is_lhs_pointer) {
+				if (is_lhs_pointer) {
 					lhs_type.pop_back(); 
 				}
 				vector<string> parts = split(lhs_type, " ");
@@ -1575,8 +1584,8 @@ PRINT_ARGS:     E ',' PRINT_ARGS
                     string tmp = genTempCode("bool");
                     string l1 = genLabel();
                     string l2 = genLabel();
-                    $$.traducao = $1.traducao + "\t" + tmp + " = " + $1.label + " == 1;\n"
-                    + "\tif (!" + tmp + ") goto " + l1 + ";\n\tprintf(\"T \");\n\tgoto " + l2 
+                    $$.traducao = $1.traducao + "\t" + tmp + " = " + $1.label + " != 1;\n"
+                    + "\tif (" + tmp + ") goto " + l1 + ";\n\tprintf(\"T \");\n\tgoto " + l2 
                     + ";\n" + l1 + ":\n\tprintf(\"F \");\n" + l2 + ":\n";
                 } else {
                     string mask;
@@ -1603,8 +1612,8 @@ PRINT_ARGS:     E ',' PRINT_ARGS
                     string tmp = genTempCode("bool");
                     string l1 = genLabel();
                     string l2 = genLabel();
-                    $$.traducao = $1.traducao + "\t" + tmp + " = " + $1.label + " == 1;\n"
-                    + "\tif (!" + tmp + ") goto " + l1 + ";\n\tprintf(\"T\");\n\tgoto " + l2 
+                    $$.traducao = $1.traducao + "\t" + tmp + " = " + $1.label + " != 1;\n"
+                    + "\tif (" + tmp + ") goto " + l1 + ";\n\tprintf(\"T\");\n\tgoto " + l2 
                     + ";\n" + l1 + ":\n\tprintf(\"F\");\n" + l2 + ":\n";
                 } else {
                     string mask;
