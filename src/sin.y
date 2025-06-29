@@ -118,11 +118,11 @@ VAR_STRUCT   : TK_TIPO TK_ID VET ',' VAR_STRUCT
 				$$.traducao = "\t" + $1.tipo + " " + $2.label + ";\n" + $5.traducao;
 				$$.tipo = $1.tipo + " " + $2.label + " " + $5.tipo; // hack
 			}
-			| TK_ID TK_ID VET ',' VAR_STRUCT // struct dentro de struct
+			| TK_ID TK_ID VET ',' VAR_STRUCT 
 			{
 				TipoStruct ts = getStruct($1.label);
 				$$.traducao = "\t" + ts.id + " " + $2.label + ";\n" + $5.traducao;
-				// A linha abaixo é a que foi corrigida
+
 				$$.tipo = split(ts.id, " ")[1] + " " + $2.label + " " + $5.tipo; 
 			}
 			| TK_TIPO TK_ID VET
@@ -161,7 +161,8 @@ FUNCAO:     TK_FUNCAO TK_MAIN '(' ')' { setReturn("main"); } BLOCO
 			}
 			| TK_FUNCAO TK_ID { entrar_escopo(); } '(' ARGS ')' TIPO BLOCO
 			{
-				declararFuncao($2, $5.tipo, $7.label);
+				declararFuncao($2, $5.tipo, $7.label, $5.traducao);
+
 				Funcao f = getFuncao($2.label, $5.tipo);
 				if (!hasReturned) {
 					yyerror("função " + $2.label + " não possui retorno");
@@ -171,7 +172,7 @@ FUNCAO:     TK_FUNCAO TK_MAIN '(' ')' { setReturn("main"); } BLOCO
 				} else {
 					$$.traducao = $7.label + " " + f.id + "(" + $5.traducao + $8.traducao + "}\n\n";
 				}
-				hasReturned = false; // reseta o retorno 
+				hasReturned = false; 
 			}
 			| TK_BIND TIPO_METODO TK_ID { entrar_escopo(); entrarMetodo($2.tipo); } '(' ARGS ')' TIPO BLOCO
 			{
@@ -212,24 +213,74 @@ TIPO        :  ':' TK_TIPO { setReturn($2.tipo); }
 				$$.label = "void";
 			}
 			;
-ARGS 		: TK_TIPO TK_ID ',' ARGS
+ARGS: 	TK_ID TK_ID ',' ARGS // Para casos como: (Ponto p, int x)
 			{
-				declararVariavel($2.label, $1.label, "");
+				TipoStruct ts = getStruct($1.label);
+				declararVariavel($2.label, ts.id, "", 0);
 				Variavel v = getVariavel($2.label);
-				$$.tipo = v.tipo + " " + $4.tipo; // multiplos tipos
+				$$.tipo = $1.label + " " + $4.tipo;
+				$$.traducao = ts.id + " " + v.id + ", " + $4.traducao;
+			}
+            | TK_ID TK_ID // Para casos como: (..., Ponto p)
+			{
+				TipoStruct ts = getStruct($1.label);
+				declararVariavel($2.label, ts.id, "", 0);
+				Variavel v = getVariavel($2.label);
+				$$.tipo = $1.label;
+				$$.traducao = ts.id + " " + v.id + ") {\n";
+			}
+			| TK_TIPO TK_ID lista_colchetes_vazios ',' ARGS
+			{
+				vectorUsed = true;
+		
+				declararVariavel($2.label, $1.label, "", $3.nivelAcesso);
+				Variavel v = getVariavel($2.label);
+			    
+				$$.tipo = $1.label + "[] " + $5.tipo;
+			   
+				$$.traducao = "struct Vetor " + v.id + ", " + $5.traducao;
+			}
+			| TK_ID TK_ID lista_colchetes_vazios ',' ARGS
+			{
+				vectorUsed = true;
+				TipoStruct ts = getStruct($1.label);
+				declararVariavel($2.label, ts.id, "", $3.nivelAcesso);
+				Variavel v = getVariavel($2.label);
+			  
+				$$.tipo = $1.label + "[] " + $5.tipo;
+			   
+				$$.traducao = "struct Vetor " + v.id + ", " + $5.traducao;
+			}
+			| TK_TIPO TK_ID lista_colchetes_vazios
+			{
+				vectorUsed = true;
+				declararVariavel($2.label, $1.label, "", $3.nivelAcesso);
+				Variavel v = getVariavel($2.label);
+				$$.tipo = $1.label + "[]";
+				$$.traducao = "struct Vetor " + v.id + ") {\n";
+			}
+			| TK_ID TK_ID lista_colchetes_vazios 
+			{
+				vectorUsed = true;
+				TipoStruct ts = getStruct($1.label);
+				declararVariavel($2.label, ts.id, "", $3.nivelAcesso);
+				Variavel v = getVariavel($2.label);
+				$$.tipo = $1.label + "[]";
+				$$.traducao = "struct Vetor " + v.id + ") {\n";
+			}
+			| TK_TIPO TK_ID ',' ARGS
+			{
+				declararVariavel($2.label, $1.label, "", 0); 
+				Variavel v = getVariavel($2.label);
+				$$.tipo = v.tipo + " " + $4.tipo; 
 				$$.traducao = v.tipo + " " + v.id + ", " + $4.traducao;
 			}
 			| TK_TIPO TK_ID
 			{
-				declararVariavel($2.label, $1.label, "");
+				declararVariavel($2.label, $1.label, "", 0); 
 				Variavel v = getVariavel($2.label);
 				$$.tipo = v.tipo;
 				$$.traducao = v.tipo + " " + v.id + ") {\n";
-			}
-			|
-			{
-				$$.tipo = "";
-				$$.traducao = ") {\n";
 			}
 			;
 CALL_ARGS   : E ',' CALL_ARGS
@@ -703,10 +754,25 @@ E 			: BLOCO
 			}
 			| TK_ID
 			{
-				Variavel v = getVariavel($1.label);
-				$$.label = v.id;
+			Variavel v = getVariavel($1.label);
+			$$.label = v.id;
+			$$.tamanho = v.tamanho;
+
+			// Se for um vetor dinâmico, o tipo para a checagem de assinatura
+			// da função deve indicar isso.
+			if (v.ehDinamico) {
+				// O tipo base pode ser "int" ou "struct bar"
+				string base_type = v.tipo;
+				// Se for um tipo struct, removemos o "struct " para a assinatura
+				// Ex: "struct bar" -> "bar"
+					if (base_type.rfind("struct ", 0) == 0) {
+						base_type = base_type.substr(7);
+					}
+				// A assinatura de tipo para a função será "bar[]" ou "int[]"
+				$$.tipo = base_type + "[]";
+			} else {
 				$$.tipo = v.tipo;
-				$$.tamanho = v.tamanho;
+			}
 			}
 			| TK_BREAK
 			{

@@ -1,16 +1,19 @@
-bind int foo() {
-    print(this);
-}
-
-struct bar {
+struct Ponto {
     int x
 }
 
+func processa(string nome, int valores[], Ponto p) {
+    print(nome)      
+    print(valores[0])
+    print(p.x)        
+}
+
 func main() {
-    bar v[]
-    bar b
-    b.x = 5
-    v.append(b)
-    v[0].x = 10
-    print(v[0].x)
+    int v[]
+    v.append(10)
+
+    Ponto p1
+    p1.x = 1
+
+    processa("Valores", v, p1)
 }
