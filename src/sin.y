@@ -383,7 +383,7 @@ COMANDO 	: E ';'
 				}
 				string l1 = genLabel();
 				string l2 = genLabel();
-				string cond = genTempCode("bool")
+				string cond = genTempCode("bool");
 				$$.traducao = $2.traducao + "\t" + cond + " = !" + $2.label + ";\n\tif (" + cond + ") goto " + l1 + ";\n\t" +
 					$3.traducao + "\tgoto " + l2 + ";\n" +
 					l1 + ":\n\t" + $5.traducao + "\n" +
@@ -396,7 +396,7 @@ COMANDO 	: E ';'
 				string random = genTempCode("int");
 				
 				string meio = "\t" + cond + " = " + wd.count + " != 0;\n"
-				+ "\t" + cond " = !" + cond + ";\n"
+				+ "\t" + cond + " = !" + cond + ";\n"
 				+ "\tif (" + cond + ") goto " + wd.label + ";\n"
 				+ "\t" + random + " = rand();\n"
 				+ "\t" + wd.choice + " = " + random + " % " + wd.count + ";\n";
@@ -727,6 +727,9 @@ E 			: BLOCO
 			{
 				string op = $2.label.substr(0, 1);
 				Variavel v = getVariavel($1.label);
+				if (v.tipo != "int") {
+					yyerror("operação indisponível para tipo " + v.tipo);
+				}
 				$$.traducao = $1.traducao + "\t" + v.id + " = " + v.id + " " + op + " 1;\n";
 			}
 			| '(' E ')'
@@ -794,7 +797,7 @@ E 			: BLOCO
 				$$.tipo = tipo_resultado;
 				
 				// Monta a tradução para C. A lógica é a mesma do ternário, mas os operandos mudam de lugar.
-				$$.traducao = $3.traducao + cond + " = !" $3.label + ";\n"       // 1. Código da CONDIÇÃO ($3)
+				$$.traducao = $3.traducao + cond + " = !" + $3.label + ";\n" +   // 1. Código da CONDIÇÃO ($3)
 							"\tif (" + cond + ") goto " + label_false + ";\n" + // 2. Se a condição for falsa, pula
 							$1.traducao +                                        // 3. Código da expressão VERDADEIRA ($1)
 							"\t" + $$.label + " = " + $1.label + ";\n" +         // 4. Atribui o resultado VERDADEIRO
@@ -884,15 +887,50 @@ E 			: BLOCO
 				}
 			}
 			;
+			| OP_PONTO TK_ABREVIADO E
+			{
+				Variavel v;
+				v.tipo = replace($1.tipo, "*", "");
+				v.id = "*" + $1.label;
+
+				if ((v.tipo != "int" && v.tipo == "float") || ($3.tipo != "int" || $3.tipo == "float")) {
+					yyerror("Operação inválida: " + v.tipo + " " + $2.label + " " + $3.tipo);
+				}
+				
+				string op = $2.label.substr(0, 1);
+				if (v.tipo == "float" && $3.tipo == "int") {
+					string temp = genTempCode("float");
+					$$.traducao = $3.traducao + "\t" + temp + " = (float) " + $3.label + ";\n"
+						+ "\t" + v.id + " = " + v.id + " " + op + " " + temp + ";\n";
+				} else if (v.tipo == "int" && $3.tipo == "float") {
+					string temp = genTempCode("int");
+					$$.traducao = $3.traducao + "\t" + temp + " = (int) " + $3.label + ";\n"
+						+ "\t" + v.id + " = " + v.id + " " + op + " " + temp + ";\n";
+				} else {
+					$$.traducao = $1.traducao + $3.traducao + "\t" + v.id + " = " + v.id + " " + op + " " + $3.label + ";\n";
+				}
+				
+			}
 			// A += B
 			| TK_ID TK_ABREVIADO E
 			{
 				Variavel v = getVariavel($1.label);
-				if (v.tipo != $3.tipo) {
-					yyerror("Operação entre tipos inválidos (" + v.tipo + ", " + $3.tipo + ")");
+				if ((v.tipo != "int" && v.tipo == "float") || ($3.tipo != "int" || $3.tipo == "float")) {
+					yyerror("Operação inválida: " + v.tipo + " " + $2.label + " " + $3.tipo);
 				}
+				
 				string op = $2.label.substr(0, 1);
-				$$.traducao = $1.traducao + $3.traducao + "\t" + v.id + " = " + v.id + " " + op + " " + $3.label + ";\n";
+				if (v.tipo == "float" && $3.tipo == "int") {
+					string temp = genTempCode("float");
+					$$.traducao = $3.traducao + "\t" + temp + " = (float) " + $3.label + ";\n"
+						+ "\t" + v.id + " = " + v.id + " " + op + " " + temp + ";\n";
+				} else if (v.tipo == "int" && $3.tipo == "float") {
+					string temp = genTempCode("int");
+					$$.traducao = $3.traducao + "\t" + temp + " = (int) " + $3.label + ";\n"
+						+ "\t" + v.id + " = " + v.id + " " + op + " " + temp + ";\n";
+				} else {
+					$$.traducao = $1.traducao + $3.traducao + "\t" + v.id + " = " + v.id + " " + op + " " + $3.label + ";\n";
+				}
 			}
 			| TK_NUM
 			{
@@ -1064,19 +1102,22 @@ E 			: BLOCO
 					$$.traducao = $5.traducaoAlt + cast_code + append_code(v.id, v.tipo, val_label);
 				}
 				} else if ($3.label == "len") { 
-					if (!v.ehDinamico) {
-						yyerror("O método 'len' só pode ser chamado em um vetor dinâmico.");
-					}
 					if ($5.tipo != "") { 
 						yyerror("O método 'len' não aceita argumentos.");
 					}
 
-					// O resultado de len() é um inteiro.
 					$$.tipo = "int";
 					$$.label = genTempCode("int");
+					if (v.tipo == "char*") {
+						$$.traducao = $1.traducao + "\t" + $$.label + " = " + $1.tamanho + ";\n";
+					} else {
+						if (!v.ehDinamico) {
+							yyerror("O método 'len' só pode ser chamado em um vetor dinâmico.");
+						}
+						$$.traducao = $1.traducao + "\t" + $$.label + " = " + $1.label + ".tamanho;\n";
 
-					// A tradução simplesmente acessa o campo .tamanho da struct Vetor.
-					$$.traducao = $1.traducao + "\t" + $$.label + " = " + $1.label + ".tamanho;\n";
+					}
+
 				} else if ($3.label == "remove") { // <-- ADICIONE ESTE BLOCO 'ELSE IF'
 					removeUsed = true;
 					if (!v.ehDinamico) {
@@ -1501,6 +1542,7 @@ OP_PONTO    : TK_ID
 				Variavel v = getVariavel($1.label);
 				$$.label = v.id;         // Identificador C para a variável, ex: t0
 				$$.tipo = v.tipo;         // Tipo da variável, ex: struct Foo
+				$$.tamanho = v.tamanho;
 				$$.ehDinamico = v.ehDinamico;
 				$$.numDimensoes = v.numDimensoes;
 				$$.traducao = "";         // Sem código de preparação para a variável base

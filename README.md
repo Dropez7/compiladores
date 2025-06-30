@@ -1,292 +1,242 @@
 # Compilador da linguagem Maphra
+Maphra é uma linguagem de programação criada na disciplina de compiladores do curso de Ciência da Computação da UFRRJ, a linguagem é baseada na tradução de expressões para código de 3 endereços em C.
 ![peixinho](img/peixinho.svg)
 
-## TO-DO (Etapa 1)
-- [X] Expressão com soma
-  - Fazer a soma sobre inteiros funcionar.
+ ## Quebras de linha
+ Cada linha escrita pode ou não terminar com `;`, o uso é facultativo
 
-Código na LP: 
-```C
-1 + 2 + 3;
+```go
+print("hello");
+print("world")
+```
+## Comentários
+Comentários de uma linha são feitos com `//`
+
+```go
+// Este é um comentário de uma linha
+```
+Comentários de múltiplas linhas são feitos com `/*` e `*/`
+
+```go
+/* Este é um comentário
+de múltiplas linhas */
 ```
 
-Código Intermediário:
-```C
-T1 = 2;
-T2 = 3;
-T3 = T1 + T2;
-T4 = 1;
-T5 = T4 + T3;
+## Declarações/Atribuições
+Declarações explícitas são suportadas
+
+```go
+int a
+a = 10
+float b = 3.14
 ```
 
----
-- [X] Expressão com os Demais Operadores Aritméticos  
-  - Fazer as demais operações aritméticas sobre inteiros funcionarem.
+Assim como declarações implícitas
 
-Código na LP:
-```C
-1 + 2 * 3;
+```go
+c = "hello world"
 ```
 
-Código Intermediário:
-```C
-T1 = 2;
-T2 = 3;
-T3 = T1 * T2;
-T4 = 1;
-T5 = T4 + T3;
+Também é possível trocar 2 variáveis previamente declaradas
+
+```go
+a = 10
+b = 20
+a, b = b, a
 ```
 
----
-- [X] Declaração das Cédulas de Memória Usadas  
-  - Deverá declarar antes do código todas as cédulas de memória utilizadas.
+O tipo operador ternário também está presente
 
-Código na LP:
-```C
-1 + 2 * 3;
+```go
+a = 5 if (5 > 3) else 10
 ```
 
-Código Intermediário:
-```C
-int T1;
-int T2;
-int T3;
-int T4;
-int T5;
+Declarações do tipo `bool` são feitas com as letras `T` e `F`
 
-T1 = 2;
-T2 = 3;
-T3 = T1 * T2;
-T4 = 1;
-T5 = T4 + T3;
+```go
+bool a = T
+bool b = F
 ```
 
-**OBS:** Nesse momento, já é possível compilar esse código em C. A principal dificuldade passa a ser a necessidade de impressão do resultado para verificar se a conta está correta.
+## Operações
+Operações aritméticas são suportadas normalmente
 
----
-- [X] Desenvolvimento do Parênteses
-  - Deverá permitir o uso de parênteses nas expressões.
+```go
+a = 10 + 10
+b = 10 - 5
+c = 10 * 2
+d = 10 / 2
+```
+Assim como operadores unários e atribuições simplificadas
 
-Código na LP:
-```C
-(1 + 2) * 3;
+```go
+a++
+a--
+a += 5
+a -= 2
+a *= 3
+a /= 2
 ```
 
-Código Intermediário:
-```C
-int T1;
-int T2;
-int T3;
-int T4;
-int T5;
+Também existem os operadores lógicos `a ^ b` (and), `a ? b` (or) e `~a` (not)
 
-T1 = 1;
-T2 = 2;
-T3 = T1 + T2;
-T4 = 3;
-T5 = T4 * T3;
+## Entrada/Saída
+
+A entrada e saída de dados é feita através das funções `print` e `input`
+
+```go
+print("É possível imprimir diversos argumentos", 1, 3.14, foo)
+
+int a = input("Digite um número: ")
+string b
+b = input("Digite uma string: ")
 ```
 
----
-- [X] Atribuição  
-  - Deverá permitir a atribuição a uma variável e sua utilização em expressões.
+## Strings
 
-Código na LP:
-```C
-A = (A + 2) * 3;
+As strings em Maphra são dinâmicas, também é possível realizar algumas operações como:
+
+```go
+foo = "hello"
+bar = "world"
+foobar = foo + " " + bar
+x = foobar.len()
 ```
 
-Código Intermediário:
-```C
-int T1;
-int T2;
-int T3;
-int T4;
-int T5;
+## Vetores
 
-T1 = A;
-T2 = 2;
-T3 = T1 + T2;
-T4 = 3;
-T5 = T4 * T3;
-A = T5;
+## Funções
+As funções são declaradas com a palavra-chave `func`, o tipo de retorno é opcional, caso não seja declarado, a função retornará `void`
+
+```go
+func soma(int a, int b): int {
+  return a + b
+}
+
+func greeting(string name){
+  print("Hello,", name + "!")
+}
+```
+Funções são identificadas pelo nome e seus argumentos, o que permite a sobrecarga de funções
+
+```go
+func produto(int a, int b): int {
+  return a * b
+}
+
+func produto(Point p): int {
+  return p.x * p.y
+}
 ```
 
-**OBS:** Esse código volta a ter problemas de compilação, pois ainda não resolvemos a alocação da variável no código intermediário.
+## Structs
+Maphra possuí suporte a structs
 
----
-- [X] Declaração  
-  - Deverá criar uma tabela de símbolos para representar as cédulas de memória alocadas pelo usuário. Esse é um exemplo de declaração explícita, mas outras variações de design são possíveis.
+```
+struct Point {
+  int x
+  int y
+}
+```
+Também é possível criar structs aninhados
 
-Código na LP:
-```C
-int A;
-A = (A + 2) * 3;
+```go
+struct Square {
+  Point p1
+  Point p2
+  Point p3
+  Point p4
+}
+```
+Além disso, é possível definir métodos para os structs utilizando a palavra-chave `bind`
+
+```go
+bind Square getArea(): int {
+  return (this.p2.x - this.p1.x) * (this.p3.y - this.p1.y)
+}
 ```
 
-Código Intermediário:
-```C
-int T1;
-int T2;
-int T3;
-int T4;
-int T5;
+Variáveis básicas como `int`, `float`, `bool` e `string` também permitem a criação de métodos
 
-T2 = 2;
-T3 = T1 + T2;
-T4 = 3;
-T5 = T4 * T3;
-T1 = T5;
+```go
+bind float squared(float a): float {
+  return a * a
+}
 ```
 
-**OBS:** É possível adicionar comentários ao código gerado para facilitar a depuração.
+## Comandos de controle/repetição
+Maphra suporta os comandos básicos de controle como `if`, `else` (este que pode ser substituído por `helcio`) e `switch`
 
----
-- [X] Tipo Float  
-  - Deverá ser possível utilizar o tipo `float`. Para isso, será necessário alterar a tabela de símbolos para armazenar o tipo da variável. Além disso, será preciso carregar o tipo resultante entre os nós da expressão.
-
-Código na LP:
-```C
-int A;
-A = (A + 2) * 3.0;
+```go
+if (1 < 2) {
+  print("1 é menor que 2")
+} else if (1 == 2) {
+  print("1 é igual a 2")
+} helcio {
+  print("1 é maior que 2")
+}
 ```
 
-Código Intermediário:
-```C
-int T1;
-int T2;
-int T3;
-float T4;
-int T5;
-
-T2 = 2;
-T3 = T1 + T2;
-T4 = 3.0;
-T5 = T4 * T3;
-A = T5;
+```
+foo = "hello"
+switch (foo) {
+  case "hello":
+    print("foo é hello")
+    break
+  case "world":
+    print("foo é world")
+    break
+  dafoe:
+    print("foo não é nem hello nem world")
+}
 ```
 
----
-- [X] Tipos char e boolean  
-  - Deverá ser possível declarar e utilizar variáveis dos tipos `char` e `boolean`.
+Os comandos de repetição `for`, `while`, e `do while` também são suportados
 
-Código na LP:
-```C
-char C;
-C = 'a';
+```go
+for (int i = 0; i < 10; i++) {
+  print(i)
+}
 
-bool B;
-B = T;
+for (i < 5) {
+  print(i)
+  i++
+}
+
+do {
+  print(i)
+  i++
+} for (i < 5)
 ```
 
-Código Intermediário:
-```C
-char T1;
-int T2;
+Por fim, os comandos guardados de Djikstra também são suportados através da palavra-chave `wd` (ou `wheeldecide`)
 
-T1 = 'a';
-T2 = 1;
+```go
+wheeldecide {
+  opt T {
+    print("o sorteado foi 1")
+  }
+  opt T {
+    print("o sorteado foi 2")
+  }
+  opt T {
+    print("o sorteado foi 3")
+  }
+}
+```
+Também é possível fazer um loop
+
+```
+do wd {
+    opt q1 > q2 {
+        q1, q2 = q2, q1
+    }
+    opt q2 > q3 {
+        q2, q3 = q3, q2
+    }
+    opt q3 > q4 {
+        q3, q4 = q4, q3
+    }
+}
 ```
 
-**OBS:** Lembrando que não existe tipo `bool` no código intermediário. Contudo, macros podem ser usadas para melhorar a legibilidade do código.
-
----
-
-- [X] Operadores Relacionais  
-  - Permitir expressões com operadores relacionais (`<`, `<=`, `>`, `>=`, `==`, `!=`). O resultado da operação deve ser tratado como valor lógico.
-
-Código na LP:
-```C
-bool R;
-R = 3 < 5;
-```
-
-Código Intermediário:
-```C
-int T1;
-int T2;
-int T3;
-int T4;
-
-T1 = 3;
-T2 = 5;
-T3 = T1 < T2;
-T4 = T3;
-```
-
----
-- [X] Operadores Lógicos  
-  - Implementar os operadores lógicos `&&`, `||` e `!`. Deve-se verificar a compatibilidade de tipos nas expressões lógicas.
-
-Código na LP:
-```C
-bool B1;
-bool B2;
-bool R;
-R = B1 ^ ~B2;
-```
-
-Código Intermediário:
-```C
-int T1;
-int T2;
-int T3;
-int T4;
-int T5;
-
-T2 = !T1;
-T4 = T3 && T2;
-T5 = T4;
-```
-
----
-- [X] 11 Conversão Implícita  
-  - Deverá ocorrer a conversão automática de `int` para `float` em expressões mistas. Essa conversão deve ser aplicada na geração do código intermediário. Será necessário criar uma tabela de conversão para determinar os tipos resultantes. Estratégias como as usadas em Ada não serão aceitas.
-
-Código na LP:
-```C
-float F;
-int I;
-F = I + 2.5;
-```
-
-Código Intermediário:
-```C
-int T1;
-float T2;
-float T3;
-float T4;
-float T5;
-
-T2 = (float) T1;
-T3 = 2.5;
-T4 = T2 + T3;
-T5 = T4;
-```
-
-**OBS:** A conversão pode ser validada na análise semântica para evitar operações inválidas.
-
----
-- [X] Conversão Explícita  
-  - Permitir expressões com casting explícito. A conversão deverá ser aplicada diretamente no código intermediário.
-
-Código na LP:
-```C
-int I;
-float F;
-I = (int) F;
-```
-
-Código Intermediário:
-```C
-float T1;
-float T2;
-int T3;
-int T4;
-
-T2 = T1;
-T3 = (int) T2;
-T4 = T3;
-```
-
-**OBS:** O cast explícito pode ser validado na análise semântica para evitar conversões inválidas.
