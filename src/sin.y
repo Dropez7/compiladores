@@ -6,7 +6,6 @@
 #include <algorithm>
 #include "src/utils.hpp"
 
-// Em sintatico.y
 void genCodigo(string traducao) {
     // Cabeçalho padrão do C
     string codigo = "/*Compilador MAPHRA*/\n"
