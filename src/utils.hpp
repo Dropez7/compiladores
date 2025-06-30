@@ -175,7 +175,7 @@ void genPrototipo(Funcao& f)
         {
             c_type = type;
         }
-        
+
         c_param_list_str += c_type;
         first = false;
     }
@@ -239,7 +239,8 @@ void declararVariavel(const string& nome_var, const string& tipo_var, const stri
     v.id = genId();
     v.tamanho = tamanho;
     v.numDimensoes = numDimensoes; // Armazena o número de dimensões
-    
+
+    // Simplificação: se tem dimensões, é dinâmico.
     if (numDimensoes > 0) {
         v.ehDinamico = true;
     }
@@ -510,7 +511,8 @@ string convertImplicit(atributos a, atributos b, Variavel v)
         {
             return a.traducao + b.traducao + "\t" + v.id + " = (float) " + b.label + ";\n";
         }
-        
+        // Correção pra string e char*
+
         else if (v.tipo == "string" && b.tipo == "char*")
         {
             return a.traducao + b.traducao + "\t" + v.id + " = " + b.label + ";\n";
@@ -560,7 +562,7 @@ string zerarVetor(string id, int n)
     string fim = genLabel();
     string iterator = genTempCode("int");
     string cond = genTempCode("bool");
-    return "\t" + iterator + " = 0;\n" + inicio + ":\n" + "\t" + cond + " = (" + iterator + " < " + to_string(n) + ");\n" + "\tif (!" + cond + ") goto " + fim + ";\n" + "\t" + id + "[" + iterator + "] = 0;\n" + "\t" + iterator + " = " + iterator + " + 1;\n" + "\tgoto " + inicio + ";\n" + fim + ":\n";
+    return "\t" + iterator + " = 0;\n" + inicio + ":\n" + "\t" + cond + " = (" + iterator + " >= " + to_string(n) + ");\n\tif (" + cond + ") goto " + fim + ";\n" + "\t" + id + "[" + iterator + "] = 0;\n" + "\t" + iterator + " = " + iterator + " + 1;\n" + "\tgoto " + inicio + ";\n" + fim + ":\n";
 }
 
 string replace(const string& original, const string& alvo, const string& novoValor)
@@ -585,8 +587,8 @@ string len(string buffer, string tamanho, string cond, string label)
     string output = "\t" + tamanho + " = 0;\n" + label + ":\n\t"
         + cp + " = " + buffer + "+" + tamanho + ";\n\t"
         + c + " = *" + cp + ";\n\t"
-        + cond + " = (" + c + " != '\\0');\n"
-        + "\tif (!" + cond + ") goto " + label + "_end;\n"
+        + cond + " = (" + c + " == '\\0');\n"
+        + "\tif (" + cond + ") goto " + label + "_end;\n"
         + "\t" + tamanho + " = " + tamanho + " + 1;\n"
         + "\tgoto " + label + ";\n" + label + "_end:\n\t"
         + "\t" + tamanho + " = " + tamanho + " - 1;\n\t"
@@ -631,11 +633,12 @@ string genStringcmp() {
 
 string append_code(string vet_id, string tipo_base, string val_label) {
 
-    string l_realloc_fim = genLabel();      
-    string l_ternario_else = genLabel();    
-    string l_ternario_fim = genLabel();     
+    // --- Setup: Nomes para variáveis temporárias e labels ---
+    string l_realloc_fim = genLabel();
+    string l_ternario_else = genLabel();
+    string l_ternario_fim = genLabel();
 
-    string cond_realloc = genTempCode("bool");    
+    string cond_realloc = genTempCode("bool");
     string nova_capacidade = genTempCode("int");
     string cond_nova_cap = genTempCode("bool");
     string tam_bytes = genTempCode("size_t");
@@ -643,13 +646,15 @@ string append_code(string vet_id, string tipo_base, string val_label) {
     string cast_ptr = genTempCode(tipo_base + "*");
     string dest_ptr = genTempCode(tipo_base + "*");
 
-    string code; 
+    string code;
 
-    code += "\t" + cond_realloc + " = " + vet_id + ".tamanho == " + vet_id + ".capacidade;\n";
-    code += "\tif (!" + cond_realloc + ") goto " + l_realloc_fim + ";\n";
+    // 1. Verifica se precisa realocar
+    code += "\t" + cond_realloc + " = " + vet_id + ".tamanho != " + vet_id + ".capacidade;\n";
+    code += "\tif (" + cond_realloc + ") goto " + l_realloc_fim + ";\n";
 
-    code += "\t" + cond_nova_cap + " = " + vet_id + ".capacidade == 0;\n";
-    code += "\tif (!" + cond_nova_cap + ") goto " + l_ternario_else + ";\n";
+    // 2. Bloco que substitui o operador ternário
+    code += "\t" + cond_nova_cap + " = " + vet_id + ".capacidade != 0;\n";
+    code += "\tif (" + cond_nova_cap + ") goto " + l_ternario_else + ";\n";
     code += "\t" + nova_capacidade + " = 8;\n";
     code += "\tgoto " + l_ternario_fim + ";\n";
     code += l_ternario_else + ":\n";

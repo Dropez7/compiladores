@@ -1,8 +1,12 @@
-func main(){
+struct Circulo {
+    float raio;
+}
 
-    a = 1
-    b = 2
-    if (a < b) {
-        print("'a' é menor que 'b'.");
-    }
+bind Circulo new(float r) {
+    this.raio = r;
+}
+
+func main() {
+    Circulo c = Circulo.new(10.0);
+    print("Raio do círculo:", c.raio);
 }

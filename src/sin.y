@@ -78,7 +78,7 @@ void genCodigo(string traducao) {
 %token TK_MAIN TK_ID TK_PRINT TK_INPUT
 %token TK_TIPO TK_UNARIO TK_ABREVIADO
 %token TK_RELACIONAL
-%token TK_IF TK_ELSE TK_LACO TK_DO TK_IN 
+%token TK_IF TK_ELSE TK_LACO TK_DO TK_IN TK_THEN
 %token TK_SWITCH TK_DEFAULT
 %token TK_BREAK TK_CONTINUE
 %token TK_WHEELDECIDE TK_OPTION
@@ -89,6 +89,7 @@ void genCodigo(string traducao) {
 %start S
 
 %right '='
+%nonassoc TK_THEN
 %left TK_ELSE
 %right TK_UNARIO
 %right TK_ABREVIADO
@@ -331,7 +332,7 @@ BLOCO : '{' { entrar_escopo(); } COMANDOS '}'
 			}
 			;
 
-COMANDOS	: COMANDO COMANDOS
+COMANDOS	: COMANDOS COMANDO
 			{
 				$$.traducao = $1.traducao + $2.traducao;
 			}
@@ -341,26 +342,26 @@ COMANDOS	: COMANDO COMANDOS
 			}
 			;
 
-COMANDO 	: E ';'
+COMANDO 	: E
 			{
 				$$ = $1;
 			}
-			|
-			E
+			| ';'
 			{
-				$$ = $1;
+				$$.traducao = "";
 			}
 			| BLOCO
 			{
 				$$ = $1;
 			}
-			| TK_IF E BLOCO
+			| TK_IF E BLOCO %prec TK_THEN
 			{
 				if ($2.tipo != "bool") {
 					yyerror("condição deve ser do tipo booleano");
 				}
 				string label = genLabel();
-				$$.traducao = $2.traducao + "\tif (!" + $2.label + ") goto " + label + ";\n" + $3.traducao + label + ":\n";
+				string cond = genTempCode("bool");
+				$$.traducao = $2.traducao + "\t" + cond + " = !" + $2.label + ";\n\tif (" + cond + ") goto " + label + ";\n" + $3.traducao + label + ":\n";
 			}
 			| TK_IF E BLOCO TK_ELSE COMANDO
 			{
@@ -369,7 +370,8 @@ COMANDO 	: E ';'
 				}
 				string l1 = genLabel();
 				string l2 = genLabel();
-				$$.traducao = $2.traducao + "\tif (!" + $2.label + ") goto " + l1 + ";\n\t" +
+				string cond = genTempCode("bool");
+				$$.traducao = $2.traducao + "\t" + cond + " = !" + $2.label + ";\n\tif (" + cond + ") goto " + l1 + ";\n\t" +
 					$3.traducao + "\tgoto " + l2 + ";\n" +
 					l1 + ":\n\t" + $5.traducao + "\n" +
 					l2 + ":\n";
@@ -381,7 +383,8 @@ COMANDO 	: E ';'
 				string random = genTempCode("int");
 				
 				string meio = "\t" + cond + " = " + wd.count + " != 0;\n"
-				+ "\tif (!" + cond + ") goto " + wd.label + ";\n"
+				+ "\t" + cond + " = !" + cond + ";\n"
+				+ "\tif (" + cond + ") goto " + wd.label + ";\n"
 				+ "\t" + random + " = rand();\n"
 				+ "\t" + wd.choice + " = " + random + " % " + wd.count + ";\n";
 				for (int i = 2; i <= wd.nCLAUSES; i++) {
@@ -405,7 +408,8 @@ COMANDO 	: E ';'
 				string fim = genLabel();
 
 				string meio = "\t" + cond + " = " + wd.count + " != 0;\n"
-				+ "\tif (!" + cond + ") goto " + fim + ";\n"
+				+ "\t" + cond + " = !" + cond + ";\n"
+				+ "\tif (" + cond + ") goto " + fim + ";\n"
 				+ "\t" + random + " = rand();\n"
 				+ "\t" + wd.choice + " = " + random + " % " + wd.count + ";\n";
 				for (int i = 2; i <= wd.nCLAUSES; i++) {
@@ -428,9 +432,10 @@ COMANDO 	: E ';'
 				}
 				string inicio = genLabel();
 				string fim = genLabel();
+				string cond = genTempCode("bool");
 				$3.traducao = replace($3.traducao, "CONTINUE", inicio);
 				$3.traducao = replace($3.traducao, "BREAK", fim);
-				$$.traducao = inicio + ":\n" + $2.traducao +  "\tif (!" + $2.label + ") goto " + fim + ";\n" +
+				$$.traducao = inicio + ":\n" + $2.traducao + "\t" + cond + " = !" + $2.label  +  ";\n\tif (" + cond + ") goto " + fim + ";\n" +
 					$3.traducao + "\tgoto " + inicio + ";\n" +
 					fim + ":\n"; 
 			}
@@ -443,9 +448,10 @@ COMANDO 	: E ';'
 				}
 				string inicio = genLabel();
 				string fim = genLabel();
+				string cond = genTempCode("bool");
 				$2.traducao = replace($2.traducao, "CONTINUE", inicio);
 				$2.traducao = replace($2.traducao, "BREAK", fim);
-				$$.traducao = inicio + ":\n" + $2.traducao + $4.traducao + "\tif (!" + $4.label + ") goto " + fim + ";\n" +
+				$$.traducao = inicio + ":\n" + $2.traducao + $4.traducao + "\t" + cond + " = !" + $4.label + ";\n\tif (" + cond + ") goto " + fim + ";\n" +
 					$3.traducao + "\tgoto " + inicio + ";\n" +
 					fim + ":\n";
 			}
@@ -462,10 +468,11 @@ COMANDO 	: E ';'
                 }
                 string inicio = genLabel();
                 string fim = genLabel();
+				string cond = genTempCode("bool");
 				$9.traducao = replace($9.traducao, "CONTINUE", inicio);
 				$9.traducao = replace($9.traducao, "BREAK", fim);
                 $$.traducao = $3.traducao + 
-                    inicio + ":\n" + $5.traducao + "\tif (!" + $5.label + ") goto " + fim + ";\n" +
+                    inicio + ":\n" + $5.traducao + "\t" + cond + " = !" + $5.label + ";\n\tif (" + cond + ") goto " + fim + ";\n" +
                     $9.traducao + $7.traducao + "\tgoto " + inicio + ";\n" +
                     fim + ":\n";
             }
@@ -620,13 +627,14 @@ BLOCO_DECIDE: TK_OPTION E COMANDO BLOCO_DECIDE
 				wd.nCLAUSES++;
 				string fim1 = genLabel();
 				string cond = genTempCode("bool");
+				string cond2 = genTempCode("bool");
 				string fim2 = genLabel();
-				$$.traducao = $2.traducao + "\tif(!" + $2.label +") goto " + fim1 + ";\n\t" 
+				$$.traducao = $2.traducao + + "\t" + cond + " = !" + $2.label + ";\n\tif (" + cond +") goto " + fim1 + ";\n\t" 
 				+ wd.guards + "[" + wd.count + "] = " + to_string(wd.nCLAUSES) + ";\n\t" 
 				+ wd.count + " = " + wd.count + "+ 1;\n\t" 
 				+ fim1 + ":\n" + $4.traducao + "placeholder" + to_string(wd.nCLAUSES) + "\t" 
-				+ cond + " = " + wd.guards + "[" + wd.choice + "] == " + to_string(wd.nCLAUSES) 
-				+ ";\n\tif(!" + cond + ") goto " + fim2 + ";\n" + $3.traducao
+				+ cond2 + " = " + wd.guards + "[" + wd.choice + "] != " + to_string(wd.nCLAUSES) 
+				+ ";\n\tif (" + cond2 + ") goto " + fim2 + ";\n" + $3.traducao
 				+ "\tgoto " + wd.label + ";\n" + fim2 + ":\n";
 				
 			}
@@ -738,14 +746,10 @@ E 			: BLOCO
 			// a = expr1 (if_condition) else expr2
 			| E TK_IF E TK_ELSE E
 			{
-				// --- a) Verificação de Tipos ---
-
-				// A condição ($3) deve ser um booleano.
 				if ($3.tipo != "bool") {
 					yyerror("A condição da expressão condicional (if) deve ser do tipo booleano.");
 				}
 
-				// Os dois possíveis resultados ($1 e $5) devem ser de tipos compatíveis.
 				string tipo_resultado;
 				if ($1.tipo == $5.tipo) {
 					tipo_resultado = $1.tipo;
@@ -755,25 +759,23 @@ E 			: BLOCO
 					yyerror("Tipos incompativeis nos resultados da expressão condicional: " + $1.tipo + " e " + $5.tipo);
 				}
 
-				// --- b) Geração de Código ---
 
 				string label_false = genLabel();
 				string label_fim = genLabel();
+				string cond = genTempCode("bool");
 				
-				// Cria uma variável temporária para guardar o resultado final.
 				$$.label = genTempCode(tipo_resultado);
 				$$.tipo = tipo_resultado;
 				
-				// Monta a tradução para C. A lógica é a mesma do ternário, mas os operandos mudam de lugar.
-				$$.traducao = $3.traducao +                                        // 1. Código da CONDIÇÃO ($3)
-							"\tif (!" + $3.label + ") goto " + label_false + ";\n" + // 2. Se a condição for falsa, pula
-							$1.traducao +                                        // 3. Código da expressão VERDADEIRA ($1)
-							"\t" + $$.label + " = " + $1.label + ";\n" +         // 4. Atribui o resultado VERDADEIRO
-							"\tgoto " + label_fim + ";\n" +                      // 5. Pula para o fim
-							label_false + ":\n" +                               // 6. Label para o bloco falso
-							$5.traducao +                                        // 7. Código da expressão FALSA ($5)
-							"\t" + $$.label + " = " + $5.label + ";\n" +         // 8. Atribui o resultado FALSO
-							label_fim + ":\n";                                  // 9. Label do fim
+				  $$.traducao = $3.traducao + "\t" + cond + " = !" + $3.label + ";\n" + // Linha corrigida
+                "\tif (" + cond + ") goto " + label_false + ";\n" +
+                $1.traducao +
+                "\t" + $$.label + " = " + $1.label + ";\n" +
+                "\tgoto " + label_fim + ";\n" +
+                label_false + ":\n" +
+                $5.traducao +
+                "\t" + $$.label + " = " + $5.label + ";\n" +
+                label_fim + ":\n";                               // 9. Label do fim
 			}
 			// int(3.14)
 			| TK_TIPO '(' E ')'
@@ -1271,75 +1273,84 @@ E 			: BLOCO
 			}
 			;
 
-acesso: TK_ID '[' E ']'  // Acesso a um elemento: v[i]
-      {
-          Variavel v = getVariavel($1.label);
-          if (!v.ehDinamico) { yyerror("A variável '" + v.nome + "' não é um vetor dinâmico."); }
-          if ($3.tipo != "int") { yyerror("O índice de um vetor deve ser um inteiro."); }
+acesso: TK_ID '[' E ']'  // Regra original: v[i] (caso base)
+        {
+            Variavel v = getVariavel($1.label);
+            if (!v.ehDinamico) { yyerror("A variável '" + v.nome + "' não é um vetor dinâmico."); }
+            if ($3.tipo != "int") { yyerror("O índice de um vetor deve ser um inteiro."); }
 
-          $$.traducao = $3.traducao; // Código para calcular o índice
-          $$.tipo = v.tipo;
-          $$.label = genTempCode(v.tipo);
-          
-          string p_data = genTempCode("char*");
-          string t_offset = genTempCode("int");
-          string p_element = genTempCode("char*");
-          
-          $$.traducao += "\t" + p_data + " = " + v.id + ".data;\n";
-          $$.traducao += "\t" + t_offset + " = " + $3.label + " * " + v.id + ".tam_elemento;\n";
-          $$.traducao += "\t" + p_element + " = " + p_data + " + " + t_offset + ";\n";
-          $$.traducao += "\t" + $$.label + " = *((" + v.tipo + "*)" + p_element + ");\n";
-          
-          $$.ehDinamico = false;
-      }
-      | TK_ID '[' optional_e ':' optional_e ']' // Slice: v[a:b]
-      {
-          // A implementação anterior para slice já gera uma chamada de função,
-          // o que é um bom nível de abstração e já se parece com 3AC.
-          // Vamos manter como está, pois a complexidade foi movida para a função C.
-          sliceUsed = true; 
-          Variavel v = getVariavel($1.label);
-          if (!v.ehDinamico) { yyerror("Slices só podem ser feitos em vetores dinâmicos."); }
+            // Lógica para acessar o elemento do vetor.
+            // O tipo resultante é o tipo base do vetor.
+            $$.tipo = v.tipo; 
+            // Para matrizes, o tipo base ainda é um vetor. Ex: int[][] -> int[]
+            if (v.numDimensoes > 1) {
+                $$.tipo = v.tipo + "[]";
+                $$.id_original = v.tipo; // Mantém o tipo do elemento final (ex: int)
+                $$.numDimensoes = v.numDimensoes - 1; // Decrementa a dimensão
+                $$.ehDinamico = true;
+            } else {
+                 $$.numDimensoes = 0;
+                 $$.ehDinamico = false;
+            }
 
-          string inicio = $3.label;
-          string fim = $5.label;
-          string temp_trad = "";
+            // Gera o código de 3 endereços para o acesso
+            $$.traducao = $3.traducao; 
+            string temp_result = genTempCode("struct Vetor"); // Assume que o resultado é sempre um ponteiro/struct
+            string p_data = genTempCode("char*");
+            string t_offset = genTempCode("int");
+            string p_element = genTempCode("char*");
+            
+            $$.traducao += "\t" + p_data + " = " + v.id + ".data;\n";
+            $$.traducao += "\t" + t_offset + " = " + $3.label + " * " + v.id + ".tam_elemento;\n";
+            $$.traducao += "\t" + p_element + " = " + p_data + " + " + t_offset + ";\n";
+           
+            // Se o elemento ainda for um vetor, o resultado é a struct Vetor naquele ponteiro.
+            // Se for o elemento final, é o valor.
+            if ($$.ehDinamico) {
+                 $$.label = genTempCode("struct Vetor");
+                 $$.traducao += "\t" + $$.label + " = *((" + "struct Vetor" + "*)" + p_element + ");\n";
+            } else {
+                 $$.label = genTempCode($$.tipo);
+                 $$.traducao += "\t" + $$.label + " = *((" + $$.tipo + "*)" + p_element + ");\n";
+            }
+        }
+      | acesso '[' E ']' // Nova regra: expressao[i] (caso recursivo)
+        {
+            // $1 é o resultado do acesso anterior (ex: matriz[0])
+            if (!$1.ehDinamico) { yyerror("Tentativa de indexar uma expressão que não é um vetor."); }
+            if ($3.tipo != "int") { yyerror("O índice de um vetor deve ser um inteiro."); }
+            
+            // O tipo do resultado é o tipo base do vetor anterior
+            $$.tipo = $1.id_original;
+            if ($1.numDimensoes > 1) {
+                $$.tipo = $1.id_original + "[]";
+                $$.id_original = $1.id_original;
+                $$.numDimensoes = $1.numDimensoes - 1;
+                $$.ehDinamico = true;
+            } else {
+                $$.numDimensoes = 0;
+                $$.ehDinamico = false;
+            }
+            
+            // Gera o código de 3 endereços para o acesso aninhado
+            $$.traducao = $1.traducao + $3.traducao;
+            string p_data = genTempCode("char*");
+            string t_offset = genTempCode("int");
+            string p_element = genTempCode("char*");
 
-          if (inicio.empty()) {
-              inicio = genTempCode("int");
-              temp_trad += "\t" + inicio + " = -1;\n";
-          } else {
-              if ($3.tipo != "int") yyerror("Índice de slice deve ser inteiro.");
-              temp_trad += $3.traducao;
-          }
-
-          if (fim.empty()) {
-              fim = genTempCode("int");
-              temp_trad += "\t" + fim + " = -1;\n";
-          } else {
-              if ($5.tipo != "int") yyerror("Índice de slice deve ser inteiro.");
-              temp_trad += $5.traducao;
-          }
-
-          $$.traducao = temp_trad;
-          $$.label = genTempCode("struct Vetor");
-          $$.traducao += "\t" + $$.label + " = __maphra_slice(&" + v.id + ", " + inicio + ", " + fim + ");\n";
-          
-          $$.ehDinamico = true;
-          $$.tipo = v.tipo + "[]"; 
-          $$.id_original = v.tipo;
-      }
-      ;
-
-optional_e: E
-			{
-				$$ = $1;
-			}
-			| /* vazio */
-			{
-				$$.label = "";
-			}
-			;	
+            $$.traducao += "\t" + p_data + " = " + $1.label + ".data;\n";
+            $$.traducao += "\t" + t_offset + " = " + $3.label + " * " + $1.label + ".tam_elemento;\n";
+            $$.traducao += "\t" + p_element + " = " + p_data + " + " + t_offset + ";\n";
+            
+             if ($$.ehDinamico) {
+                 $$.label = genTempCode("struct Vetor");
+                 $$.traducao += "\t" + $$.label + " = *((" + "struct Vetor" + "*)" + p_element + ");\n";
+            } else {
+                 $$.label = genTempCode($$.tipo);
+                 $$.traducao += "\t" + $$.label + " = *((" + $$.tipo + "*)" + p_element + ");\n";
+            }
+        }
+		;
 
 lista_colchetes_vazios: '[' ']'
 			{
@@ -1441,7 +1452,7 @@ OP_PONTO    : TK_ID
 				string accessor = is_lhs_pointer ? "->" : ".";
 
 				string struct_name;
-				if(is_lhs_pointer) {
+				if (is_lhs_pointer) {
 					lhs_type.pop_back(); 
 				}
 				vector<string> parts = split(lhs_type, " ");
@@ -1499,8 +1510,8 @@ PRINT_ARGS:     E ',' PRINT_ARGS
                     string tmp = genTempCode("bool");
                     string l1 = genLabel();
                     string l2 = genLabel();
-                    $$.traducao = $1.traducao + "\t" + tmp + " = " + $1.label + " == 1;\n"
-                    + "\tif (!" + tmp + ") goto " + l1 + ";\n\tprintf(\"T \");\n\tgoto " + l2 
+                    $$.traducao = $1.traducao + "\t" + tmp + " = " + $1.label + " != 1;\n"
+                    + "\tif (" + tmp + ") goto " + l1 + ";\n\tprintf(\"T \");\n\tgoto " + l2 
                     + ";\n" + l1 + ":\n\tprintf(\"F \");\n" + l2 + ":\n";
                 } else {
                     string mask;
@@ -1527,8 +1538,8 @@ PRINT_ARGS:     E ',' PRINT_ARGS
                     string tmp = genTempCode("bool");
                     string l1 = genLabel();
                     string l2 = genLabel();
-                    $$.traducao = $1.traducao + "\t" + tmp + " = " + $1.label + " == 1;\n"
-                    + "\tif (!" + tmp + ") goto " + l1 + ";\n\tprintf(\"T\");\n\tgoto " + l2 
+                    $$.traducao = $1.traducao + "\t" + tmp + " = " + $1.label + " != 1;\n"
+                    + "\tif (" + tmp + ") goto " + l1 + ";\n\tprintf(\"T\");\n\tgoto " + l2 
                     + ";\n" + l1 + ":\n\tprintf(\"F\");\n" + l2 + ":\n";
                 } else {
                     string mask;
