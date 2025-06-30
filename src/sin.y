@@ -61,7 +61,7 @@ void genCodigo(string traducao) {
     if (sliceUsed) { 
         codigo += genSliceFunction();
     }
-	
+
     codigo += "\n" + traducao;
     
 
@@ -736,12 +736,12 @@ E 			: BLOCO
 			}
 			| '~' E
 			{
-				if ($1.tipo != "bool") {
-					yyerror("operação (~) indisponível para tipo " + $1.tipo);
+				if ($2.tipo != "bool") {
+					yyerror("operação (~) indisponível para tipo " + $2.tipo);
 				}
+
 				$$.label = genTempCode("bool");
-				$$.traducao = $1.traducao + "\t" + $$.label +
-					" = !" + $1.label + ";\n";
+				$$.traducao = $2.traducao + "\t" + $$.label + " = !" + $2.label + ";\n";
 				$$.tipo = "bool";
 			}
 			// a = expr1 (if_condition) else expr2
@@ -1569,61 +1569,64 @@ OPTIONAL:   E
 				$$.traducao = "";
 			}
 			; 
-PRINT_ARGS:     E ',' PRINT_ARGS
-            {
+PRINT_ARGS: 	PRINT_ARGS ',' E
+			{
+				// A tradução dos argumentos anteriores já está em $1.traducao
+				// Adiciona o código para o novo argumento E ($3)
+				$$.traducao = $1.traducao;
+				$$.traducao += "\tprintf(\" \");\n"; // Adiciona um espaço entre os argumentos
 
-                if ($1.tipo == "char*" || $1.tipo == "string") {
-                    $$.traducao = $1.traducao + "\tprintf(\"%s\", " + $1.label + ");\n\tprintf(\" \");\n";
-                } else if ($1.tipo == "bool") {
-                    string tmp = genTempCode("bool");
-                    string l1 = genLabel();
-                    string l2 = genLabel();
-                    $$.traducao = $1.traducao + "\t" + tmp + " = " + $1.label + " != 1;\n"
-                    + "\tif (" + tmp + ") goto " + l1 + ";\n\tprintf(\"T \");\n\tgoto " + l2 
-                    + ";\n" + l1 + ":\n\tprintf(\"F \");\n" + l2 + ":\n";
-                } else {
-                    string mask;
-                    switch ($1.tipo[0]) {
-                        case 'i': mask = "%d"; break;
-                        case 'f': mask = "%f"; break;
-                        case 'c': mask = "%c"; break;
-                        default:  mask = "other";
-                    }
-                    if (mask == "other") {
-                        $$.traducao = $1.traducao + "\tprintf(\"<%s>\", \"" + $1.tipo + "\");\n";
-                    } else {
-                        $$.traducao = $1.traducao + "\tprintf(\"" + mask + "\", " + $1.label + ");\n\tprintf(\" \");\n";
-                    }
-                }
-                $$.traducao += $3.traducao;
-            }
-            | E
-            {
-                // Unifica a checagem de tipo. Se for "char*" OU "string", trata como string.
-                if ($1.tipo == "char*" || $1.tipo == "string") {
-                    $$.traducao = $1.traducao + "\tprintf(\"%s\", " + $1.label + ");\n";
-                } else if ($1.tipo == "bool") {
-                    string tmp = genTempCode("bool");
-                    string l1 = genLabel();
-                    string l2 = genLabel();
-                    $$.traducao = $1.traducao + "\t" + tmp + " = " + $1.label + " != 1;\n"
-                    + "\tif (" + tmp + ") goto " + l1 + ";\n\tprintf(\"T\");\n\tgoto " + l2 
-                    + ";\n" + l1 + ":\n\tprintf(\"F\");\n" + l2 + ":\n";
-                } else {
-                    string mask;
-                    switch ($1.tipo[0]) {
-                        case 'i': case 'b': mask = "%d"; break;
-                        case 'f': mask = "%f"; break;
-                        case 'c': mask = "%c"; break;
-                        default:  mask = "other";
-                    }
-                    if (mask == "other") {
-                        $$.traducao = $1.traducao + "\tprintf(\"<%s>\", \"" + $1.tipo + "\");\n";
-                    } else {
-                        $$.traducao = $1.traducao + "\tprintf(\"" + mask + "\", " + $1.label + ");\n"; 
-                    }
-                }
-            }
+				if ($3.tipo == "char*" || $3.tipo == "string") {
+					$$.traducao += $3.traducao + "\tprintf(\"%s\", " + $3.label + ");\n";
+				} else if ($3.tipo == "bool") {
+					string tmp = genTempCode("bool");
+					string l1 = genLabel();
+					string l2 = genLabel();
+					$$.traducao += $3.traducao + "\t" + tmp + " = " + $3.label + " != 1;\n"
+					+ "\tif (" + tmp + ") goto " + l1 + ";\n\tprintf(\"T\");\n\tgoto " + l2 
+					+ ";\n" + l1 + ":\n\tprintf(\"F\");\n" + l2 + ":\n";
+				} else {
+					string mask;
+					switch ($3.tipo[0]) {
+						case 'i': case 'b': mask = "%d"; break;
+						case 'f': mask = "%f"; break;
+						case 'c': mask = "%c"; break;
+						default:  mask = "other";
+					}
+					if (mask == "other") {
+						$$.traducao += $3.traducao + "\tprintf(\"<%s>\", \"" + $3.tipo + "\");\n";
+					} else {
+						$$.traducao += $3.traducao + "\tprintf(\"" + mask + "\", " + $3.label + ");\n"; 
+					}
+				}
+			}
+			| E
+			{
+				// Trata o primeiro argumento da lista
+				if ($1.tipo == "char*" || $1.tipo == "string") {
+					$$.traducao = $1.traducao + "\tprintf(\"%s\", " + $1.label + ");\n";
+				} else if ($1.tipo == "bool") {
+					string tmp = genTempCode("bool");
+					string l1 = genLabel();
+					string l2 = genLabel();
+					$$.traducao = $1.traducao + "\t" + tmp + " = " + $1.label + " != 1;\n"
+					+ "\tif (" + tmp + ") goto " + l1 + ";\n\tprintf(\"T\");\n\tgoto " + l2 
+					+ ";\n" + l1 + ":\n\tprintf(\"F\");\n" + l2 + ":\n";
+				} else {
+					string mask;
+					switch ($1.tipo[0]) {
+						case 'i': case 'b': mask = "%d"; break;
+						case 'f': mask = "%f"; break;
+						case 'c': mask = "%c"; break;
+						default:  mask = "other";
+					}
+					if (mask == "other") {
+						$$.traducao = $1.traducao + "\tprintf(\"<%s>\", \"" + $1.tipo + "\");\n";
+					} else {
+						$$.traducao = $1.traducao + "\tprintf(\"" + mask + "\", " + $1.label + ");\n"; 
+					}
+				}
+			}
 
 %%
 
