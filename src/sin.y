@@ -697,6 +697,9 @@ E 			: BLOCO
 			{
 				string op = $2.label.substr(0, 1);
 				Variavel v = getVariavel($1.label);
+				if (v.tipo != "int") {
+					yyerror("operação indisponível para tipo " + v.tipo);
+				}
 				$$.traducao = $1.traducao + "\t" + v.id + " = " + v.id + " " + op + " 1;\n";
 			}
 			| '(' E ')'
@@ -757,15 +760,15 @@ E 			: BLOCO
 				$$.label = genTempCode(tipo_resultado);
 				$$.tipo = tipo_resultado;
 				
-				$$.traducao = $3.traducao + "\t" + cond + " = !" + $3.label + ";\n" + 
-                "\tif (" + cond + ") goto " + label_false + ";\n" +
-                $1.traducao +
-                "\t" + $$.label + " = " + $1.label + ";\n" +
-                "\tgoto " + label_fim + ";\n" +
-                label_false + ":\n" +
-                $5.traducao +
-                "\t" + $$.label + " = " + $5.label + ";\n" +
-                label_fim + ":\n";                               
+				$$.traducao = $3.traducao + cond + " = !" + $3.label + ";\n" + 
+							"\tif (" + cond + ") goto " + label_false + ";\n" +
+							$1.traducao +                                      
+							"\t" + $$.label + " = " + $1.label + ";\n" +       
+							"\tgoto " + label_fim + ";\n" +                    
+							label_false + ":\n" +                              
+							$5.traducao +                                      
+							"\t" + $$.label + " = " + $5.label + ";\n" +       
+							label_fim + ":\n";                                 
 			}
 			// int(3.14)
 			| TK_TIPO '(' E ')'
@@ -845,15 +848,50 @@ E 			: BLOCO
 				}
 			}
 			;
+			| OP_PONTO TK_ABREVIADO E
+			{
+				Variavel v;
+				v.tipo = replace($1.tipo, "*", "");
+				v.id = "*" + $1.label;
+
+				if ((v.tipo != "int" && v.tipo == "float") || ($3.tipo != "int" || $3.tipo == "float")) {
+					yyerror("Operação inválida: " + v.tipo + " " + $2.label + " " + $3.tipo);
+				}
+				
+				string op = $2.label.substr(0, 1);
+				if (v.tipo == "float" && $3.tipo == "int") {
+					string temp = genTempCode("float");
+					$$.traducao = $3.traducao + "\t" + temp + " = (float) " + $3.label + ";\n"
+						+ "\t" + v.id + " = " + v.id + " " + op + " " + temp + ";\n";
+				} else if (v.tipo == "int" && $3.tipo == "float") {
+					string temp = genTempCode("int");
+					$$.traducao = $3.traducao + "\t" + temp + " = (int) " + $3.label + ";\n"
+						+ "\t" + v.id + " = " + v.id + " " + op + " " + temp + ";\n";
+				} else {
+					$$.traducao = $1.traducao + $3.traducao + "\t" + v.id + " = " + v.id + " " + op + " " + $3.label + ";\n";
+				}
+				
+			}
 			// A += B
 			| TK_ID TK_ABREVIADO E
 			{
 				Variavel v = getVariavel($1.label);
-				if (v.tipo != $3.tipo) {
-					yyerror("Operação entre tipos inválidos (" + v.tipo + ", " + $3.tipo + ")");
+				if ((v.tipo != "int" && v.tipo == "float") || ($3.tipo != "int" || $3.tipo == "float")) {
+					yyerror("Operação inválida: " + v.tipo + " " + $2.label + " " + $3.tipo);
 				}
+				
 				string op = $2.label.substr(0, 1);
-				$$.traducao = $1.traducao + $3.traducao + "\t" + v.id + " = " + v.id + " " + op + " " + $3.label + ";\n";
+				if (v.tipo == "float" && $3.tipo == "int") {
+					string temp = genTempCode("float");
+					$$.traducao = $3.traducao + "\t" + temp + " = (float) " + $3.label + ";\n"
+						+ "\t" + v.id + " = " + v.id + " " + op + " " + temp + ";\n";
+				} else if (v.tipo == "int" && $3.tipo == "float") {
+					string temp = genTempCode("int");
+					$$.traducao = $3.traducao + "\t" + temp + " = (int) " + $3.label + ";\n"
+						+ "\t" + v.id + " = " + v.id + " " + op + " " + temp + ";\n";
+				} else {
+					$$.traducao = $1.traducao + $3.traducao + "\t" + v.id + " = " + v.id + " " + op + " " + $3.label + ";\n";
+				}
 			}
 			| TK_NUM
 			{
@@ -1007,17 +1045,21 @@ E 			: BLOCO
 					$$.traducao = $5.traducaoAlt + cast_code + append_code(v.id, v.tipo, val_label);
 				}
 				} else if ($3.label == "len") { 
-					if (!v.ehDinamico) {
-						yyerror("O método 'len' só pode ser chamado em um vetor dinâmico.");
-					}
 					if ($5.tipo != "") { 
 						yyerror("O método 'len' não aceita argumentos.");
 					}
 
 					$$.tipo = "int";
 					$$.label = genTempCode("int");
+					if (v.tipo == "char*") {
+						$$.traducao = $1.traducao + "\t" + $$.label + " = " + $1.tamanho + ";\n";
+					} else {
+						if (!v.ehDinamico) {
+							yyerror("O método 'len' só pode ser chamado em um vetor dinâmico.");
+						}
+						$$.traducao = $1.traducao + "\t" + $$.label + " = " + $1.label + ".tamanho;\n";
 
-					$$.traducao = $1.traducao + "\t" + $$.label + " = " + $1.label + ".tamanho;\n";
+					}
 				} else if ($3.label == "remove") {
 					removeUsed = true;
 					if (!v.ehDinamico) {
@@ -1393,7 +1435,8 @@ OP_PONTO    : TK_ID
 
 				Variavel v = getVariavel($1.label);
 				$$.label = v.id;         
-				$$.tipo = v.tipo;         
+				$$.tipo = v.tipo;        
+				$$.tamanho = v.tamanho;
 				$$.ehDinamico = v.ehDinamico;
 				$$.numDimensoes = v.numDimensoes;
 				$$.traducao = "";         
