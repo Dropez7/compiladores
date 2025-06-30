@@ -109,6 +109,7 @@ set<Metodo> metodos;
 set<TipoStruct> structs;
 vector<string> structDef;
 set<string> free_vars;
+vector<string> vetores_a_liberar;
 vector<map<string, Variavel>> pilha_escopos;
 vector<WDarg> pilha_wd;
 

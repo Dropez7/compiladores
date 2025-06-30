@@ -54,8 +54,6 @@ void genCodigo(string traducao) {
     if (strCompared) {
         codigo += "\n" + genStringcmp();
     }
-    codigo += "\n" + traducao;
-    
     if (removeUsed) {
         codigo += genRemoveCode();
     }
@@ -63,6 +61,9 @@ void genCodigo(string traducao) {
     if (sliceUsed) { 
         codigo += genSliceFunction();
     }
+	
+    codigo += "\n" + traducao;
+    
 
     cout << codigo << endl;
 }
@@ -170,6 +171,9 @@ FUNCAO:     TK_FUNCAO TK_MAIN '(' ')' { setReturn("main"); } BLOCO
 				for (const string& var : free_vars) {
 					$$.traducao += "\tfree(" + var + ");\n";
 				}
+				for (const string& vet_id : vetores_a_liberar) {
+                    $$.traducao += "\tfree(" + vet_id + ".data);\n";
+                }
 				$$.traducao += "\treturn 0;\n}";
 			}
 			| TK_FUNCAO TK_ID { entrar_escopo(); } '(' ARGS ')' TIPO BLOCO
@@ -266,6 +270,7 @@ ARGS:       TK_TIPO TK_ID ',' ARGS
                 vectorUsed = true;
                 declararVariavel($2.label, $1.label, "", $3.nivelAcesso);
                 Variavel v = getVariavel($2.label);
+				vetores_a_liberar.push_back(v.id);
                 $$.tipo = $1.label + "[] " + $5.tipo;
                 $$.traducao = "struct Vetor " + v.id + ", " + $5.traducao;
             }
@@ -275,6 +280,7 @@ ARGS:       TK_TIPO TK_ID ',' ARGS
                 TipoStruct ts = getStruct($1.label);
                 declararVariavel($2.label, ts.id, "", $3.nivelAcesso);
                 Variavel v = getVariavel($2.label);
+				vetores_a_liberar.push_back(v.id);
                 $$.tipo = ts.id + "[] " + $5.tipo;
                 $$.traducao = "struct Vetor " + v.id + ", " + $5.traducao;
             }
@@ -283,6 +289,7 @@ ARGS:       TK_TIPO TK_ID ',' ARGS
                 vectorUsed = true;
                 declararVariavel($2.label, $1.label, "", $3.nivelAcesso);
                 Variavel v = getVariavel($2.label);
+				vetores_a_liberar.push_back(v.id);
                 $$.tipo = $1.label + "[]";
                 $$.traducao = "struct Vetor " + v.id + ") {\n";
             }
@@ -292,6 +299,7 @@ ARGS:       TK_TIPO TK_ID ',' ARGS
                 TipoStruct ts = getStruct($1.label);
                 declararVariavel($2.label, ts.id, "", $3.nivelAcesso);
                 Variavel v = getVariavel($2.label);
+				vetores_a_liberar.push_back(v.id);
                 $$.tipo = ts.id + "[]";
                 $$.traducao = "struct Vetor " + v.id + ") {\n";
             }
@@ -1204,6 +1212,8 @@ E 			: BLOCO
 				variaveis.erase(v); 
 				variaveis.insert(v);
 
+				vetores_a_liberar.push_back(v.id);
+
 				$$.traducao = "\tstruct Vetor " + v.id + ";\n";
 				$$.traducao += "\t" + v.id + ".tamanho = 0;\n";
 				$$.traducao += "\t" + v.id + ".capacidade = 0;\n";
@@ -1230,6 +1240,8 @@ E 			: BLOCO
 				v.numDimensoes = $3.nivelAcesso;
 				variaveis.erase(v); 
 				variaveis.insert(v);
+
+				vetores_a_liberar.push_back(v.id);
 
 				$$.traducao = "\tstruct Vetor " + v.id + ";\n";
 				$$.traducao += "\t" + v.id + ".tamanho = 0;\n";
@@ -1291,77 +1303,124 @@ E 			: BLOCO
 			}
 			;
 
-acesso: TK_ID '[' E ']'  // Regra original: v[i] (caso base)
-        {
-            Variavel v = getVariavel($1.label);
-            if (!v.ehDinamico) { yyerror("A variável '" + v.nome + "' não é um vetor dinâmico."); }
-            if ($3.tipo != "int") { yyerror("O índice de um vetor deve ser um inteiro."); }
+acesso: TK_ID '[' E ']'
+			{
+				Variavel v = getVariavel($1.label);
+				if (!v.ehDinamico) { yyerror("A variável '" + v.nome + "' não é um vetor dinâmico."); }
+				if ($3.tipo != "int") { yyerror("O índice de um vetor deve ser um inteiro."); }
 
-            $$.tipo = v.tipo; 
-            if (v.numDimensoes > 1) {
-                $$.tipo = v.tipo + "[]";
-                $$.id_original = v.tipo;
-                $$.numDimensoes = v.numDimensoes - 1;
-                $$.ehDinamico = true;
-            } else {
-                 $$.numDimensoes = 0;
-                 $$.ehDinamico = false;
-            }
+				$$.tipo = v.tipo; 
+				if (v.numDimensoes > 1) {
+					$$.tipo = v.tipo + "[]";
+					$$.id_original = v.tipo;
+					$$.numDimensoes = v.numDimensoes - 1;
+					$$.ehDinamico = true;
+				} else {
+					$$.numDimensoes = 0;
+					$$.ehDinamico = false;
+				}
 
-            // Gera o código de 3 endereços para o acesso
-            $$.traducao = $3.traducao; 
-            string temp_result = genTempCode("struct Vetor");
-            string p_data = genTempCode("char*");
-            string t_offset = genTempCode("int");
-            string p_element = genTempCode("char*");
-            
-            $$.traducao += "\t" + p_data + " = " + v.id + ".data;\n";
-            $$.traducao += "\t" + t_offset + " = " + $3.label + " * " + v.id + ".tam_elemento;\n";
-            $$.traducao += "\t" + p_element + " = " + p_data + " + " + t_offset + ";\n";
-           
-            if ($$.ehDinamico) {
-                 $$.label = genTempCode("struct Vetor");
-                 $$.traducao += "\t" + $$.label + " = *((" + "struct Vetor" + "*)" + p_element + ");\n";
-            } else {
-                 $$.label = genTempCode($$.tipo);
-                 $$.traducao += "\t" + $$.label + " = *((" + $$.tipo + "*)" + p_element + ");\n";
-            }
-        }
-      | acesso '[' E ']'
-        {
+				$$.traducao = $3.traducao; 
+				string p_data = genTempCode("char*");
+				string t_offset = genTempCode("int");
+				string p_element = genTempCode("char*");
+				
+				$$.traducao += "\t" + p_data + " = " + v.id + ".data;\n";
+				$$.traducao += "\t" + t_offset + " = " + $3.label + " * " + v.id + ".tam_elemento;\n";
+				$$.traducao += "\t" + p_element + " = " + p_data + " + " + t_offset + ";\n";
+				
+				if ($$.ehDinamico) {
+					$$.label = genTempCode("struct Vetor");
+					$$.traducao += "\t" + $$.label + " = *((" + "struct Vetor" + "*)" + p_element + ");\n";
+				} else {
+					$$.label = genTempCode($$.tipo);
+					$$.traducao += "\t" + $$.label + " = *((" + $$.tipo + "*)" + p_element + ");\n";
+				}
+			}
+			| acesso '[' E ']'
+			{
+				if (!$1.ehDinamico) { yyerror("Tentativa de indexar uma expressão que não é um vetor."); }
+				if ($3.tipo != "int") { yyerror("O índice de um vetor deve ser um inteiro."); }
+				
+				$$.tipo = $1.id_original;
+				if ($1.numDimensoes > 1) {
+					$$.tipo = $1.id_original + "[]";
+					$$.id_original = $1.id_original;
+					$$.numDimensoes = $1.numDimensoes - 1;
+					$$.ehDinamico = true;
+				} else {
+					$$.numDimensoes = 0;
+					$$.ehDinamico = false;
+				}
+				
+				$$.traducao = $1.traducao + $3.traducao;
+				string p_data = genTempCode("char*");
+				string t_offset = genTempCode("int");
+				string p_element = genTempCode("char*");
 
-            if (!$1.ehDinamico) { yyerror("Tentativa de indexar uma expressão que não é um vetor."); }
-            if ($3.tipo != "int") { yyerror("O índice de um vetor deve ser um inteiro."); }
-            
-            $$.tipo = $1.id_original;
-            if ($1.numDimensoes > 1) {
-                $$.tipo = $1.id_original + "[]";
-                $$.id_original = $1.id_original;
-                $$.numDimensoes = $1.numDimensoes - 1;
-                $$.ehDinamico = true;
-            } else {
-                $$.numDimensoes = 0;
-                $$.ehDinamico = false;
-            }
-            
-            $$.traducao = $1.traducao + $3.traducao;
-            string p_data = genTempCode("char*");
-            string t_offset = genTempCode("int");
-            string p_element = genTempCode("char*");
+				$$.traducao += "\t" + p_data + " = " + $1.label + ".data;\n";
+				$$.traducao += "\t" + t_offset + " = " + $3.label + " * " + $1.label + ".tam_elemento;\n";
+				$$.traducao += "\t" + p_element + " = " + p_data + " + " + t_offset + ";\n";
+				
+				if ($$.ehDinamico) {
+					$$.label = genTempCode("struct Vetor");
+					$$.traducao += "\t" + $$.label + " = *((" + "struct Vetor" + "*)" + p_element + ");\n";
+				} else {
+					$$.label = genTempCode($$.tipo);
+					$$.traducao += "\t" + $$.label + " = *((" + $$.tipo + "*)" + p_element + ");\n";
+				}
+			}
+			// slice
+			| TK_ID '[' optional_e ':' optional_e ']'
+			{
+				sliceUsed = true; 
+				Variavel v = getVariavel($1.label);
+				if (!v.ehDinamico) { yyerror("Slices só podem ser feitos em vetores dinâmicos."); }
 
-            $$.traducao += "\t" + p_data + " = " + $1.label + ".data;\n";
-            $$.traducao += "\t" + t_offset + " = " + $3.label + " * " + $1.label + ".tam_elemento;\n";
-            $$.traducao += "\t" + p_element + " = " + p_data + " + " + t_offset + ";\n";
-            
-             if ($$.ehDinamico) {
-                 $$.label = genTempCode("struct Vetor");
-                 $$.traducao += "\t" + $$.label + " = *((" + "struct Vetor" + "*)" + p_element + ");\n";
-            } else {
-                 $$.label = genTempCode($$.tipo);
-                 $$.traducao += "\t" + $$.label + " = *((" + $$.tipo + "*)" + p_element + ");\n";
-            }
-        }
-		;
+				string inicio = $3.label;
+				string fim = $5.label;
+				string traducao_indices = "";
+
+				if (inicio.empty()) {
+					inicio = genTempCode("int");
+					traducao_indices += "\t" + inicio + " = -1;\n";
+				} else {
+					if ($3.tipo != "int") yyerror("Índice de slice deve ser inteiro.");
+					traducao_indices += $3.traducao;
+				}
+
+
+				if (fim.empty()) {
+					fim = genTempCode("int");
+					traducao_indices += "\t" + fim + " = -1;\n";
+				} else {
+					if ($5.tipo != "int") yyerror("Índice de slice deve ser inteiro.");
+					traducao_indices += $5.traducao;
+				}
+
+				$$.label = genTempCode("struct Vetor");
+				$$.traducao = traducao_indices;
+				$$.traducao += "\t" + $$.label + " = __maphra_slice(&" + v.id + ", " + inicio + ", " + fim + ");\n";
+
+				vetores_a_liberar.push_back($$.label);
+				
+				$$.ehDinamico = true;
+				$$.tipo = v.tipo + "[]"; 
+				$$.id_original = v.tipo;
+				$$.numDimensoes = v.numDimensoes; 
+			}
+			;
+
+optional_e: E
+			{
+				$$ = $1;
+			}
+			| /* vazio */
+			{
+				$$.label = ""; 
+				$$.traducao = "";
+			}
+			;
 
 lista_colchetes_vazios: '[' ']'
 			{
@@ -1407,6 +1466,8 @@ lista_elementos: E
 				temp_v.ehDinamico = true;
 				temp_v.numDimensoes = 1;
 				variaveis.insert(temp_v);
+				
+				vetores_a_liberar.push_back(temp_v.id);
 
 				$$.traducao = $1.traducao; 
 				$$.traducao += "\tstruct Vetor " + temp_v.id + ";\n";

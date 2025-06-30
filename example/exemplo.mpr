@@ -1,36 +1,9 @@
 func main() {
-    int vida_jogador = 10;
-    int vida_monstro = 15;
+    int numeros[][];
+    numeros.append([10]);
+    numeros.append([20]);
+    numeros.append([30]);
+    numeros.append([40]);
 
-    print("Uma batalha começou!");
-
-    do wd {
-        // Opção 1: Atacar o monstro. Só é válida se ambos estiverem vivos.
-        opt vida_jogador > 0 ^ vida_monstro > 0 {
-            print("Você ataca o monstro!");
-            vida_monstro = vida_monstro - 5;
-            print("Vida do monstro:", vida_monstro);
-        }
-
-        // Opção 2: O monstro ataca. Só é válida se ambos estiverem vivos.
-        opt vida_jogador > 0 ^ vida_monstro > 0 {
-            print("O monstro ataca você!");
-            vida_jogador = vida_jogador - 3;
-            print("Sua vida:", vida_jogador);
-        }
-
-        // Opção 3: Fim da batalha por vitória.
-        opt vida_monstro <= 0 {
-            print("Você venceu a batalha!");
-            break; // Sai do laço do-wd
-        }
-
-        // Opção 4: Fim da batalha por derrota.
-        opt vida_jogador <= 0 {
-            print("Você foi derrotado!");
-            break; // Sai do laço do-wd
-        }
-    }
-
-    print("A batalha terminou.");
+    
 }
