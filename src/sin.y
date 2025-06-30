@@ -102,9 +102,10 @@ void genCodigo(string traducao) {
 
 %%
 
-S : 		DECLARACOES
+S : 		{ entrar_escopo(); } DECLARACOES 
 			{
-				genCodigo($1.traducao);
+				sair_escopo();
+				genCodigo($2.traducao);
 			}
 			;
 DECLARACOES  :  FUNCAO DECLARACOES
@@ -114,6 +115,10 @@ DECLARACOES  :  FUNCAO DECLARACOES
 			| STRUCT DECLARACOES
 			{
 				$$.traducao = $1.traducao + $2.traducao;
+			}
+			| E DECLARACOES
+			{
+				$$.traducao = replace($1.traducao, "\t", "") + $2.traducao;
 			}
 			|
 			{

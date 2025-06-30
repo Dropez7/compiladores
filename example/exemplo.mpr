@@ -1,30 +1,5 @@
-
-struct Ponto {
-    float x;
-    float y;
-}
-
-struct Retangulo {
-    Ponto superior_esquerdo;
-    Ponto inferior_direito;
-}
-
-bind Retangulo calcularArea() : float {
-    float base = this.inferior_direito.x - this.superior_esquerdo.x;
-    float altura = this.superior_esquerdo.y - this.inferior_direito.y;
-    return base * altura;
-}
+a = 10
 
 func main() {
-    Retangulo r;
-    Ponto p1;
-    Ponto p2;
-    p1.x = 1.0;
-    p1.y = 4.0;
-    p2.x = 5.0;
-    p2.y = 1.0;
-    r.superior_esquerdo = p1;
-    r.inferior_direito = p2;
-
-    print("A área é:", r.calcularArea());
+    print(a)
 }

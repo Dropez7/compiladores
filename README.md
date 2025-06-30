@@ -3,15 +3,6 @@ Maphra é uma linguagem de programação criada na disciplina de compiladores do
 ![peixinho](img/peixinho.svg)
 
 
-## Olá, Mundo!
-O programa mais simples que pode ser escrito em Maphra:
-
-```maphra
-func main() {
-    print("Olá Mundo a partir de Maphra!");
-}
-```
-
 ## Recursos da Linguagem
 
 ### 1. Sintaxe Básica
@@ -19,15 +10,15 @@ func main() {
 #### Quebras de Linha
 Cada linha de código pode ou não terminar com `;`, seu uso é facultativo:
 
-```maphra
-print("Olá");
-print("Mundo")
+```go
+print("Hello");
+print("World!")
 ```
 
 #### Comentários
-Suporta comentários de linha única e de múltiplas linhas, como em C:
+Suporta comentários de linha única e de múltiplas linhas:
 
-```maphra
+```go
 // Este é um comentário de uma linha.
 
 /*
@@ -45,24 +36,22 @@ Suporta os tipos: `int`, `float`, `bool` (`T` para verdadeiro, `F` para falso) e
 
 #### Declaração e Atribuição
 
-```maphra
-// Declaração explícita
-int a;
-a = 10;
-float b = 3.14;
-bool c = T;
-string d = "Olá!";
+```go
+int a
+a = 10
+float b = 3.14
+bool c = T
+string d = "Olá!"
 
-// Declaração implícita (o tipo 'int' é inferido)
-variavel_nova = 2025;
+e = 2025
 ```
 
 #### Troca de Variáveis
 
-```maphra
+```go
 int x = 10;
 int y = 20;
-x, y = y, x; // Agora x = 20 e y = 10
+x, y = y, x;
 ```
 
 ---
@@ -70,26 +59,26 @@ x, y = y, x; // Agora x = 20 e y = 10
 ### 3. Operadores e Expressões
 
 #### Aritméticos
-```maphra
-a = 10 + 5; // Soma
-b = a - 5;  // Subtração
-c = b * 2;  // Multiplicação
-d = c / 4;  // Divisão
+```go
+a = 10 + 5;
+b = a - 5; 
+c = b * 2; 
+d = c / 4;
 
-d++;        // Pós-incremento
-d--;        // Pós-decremento
-d += 10;    // Atribuição com soma
+d++;       
+d--;       
+d += 10;   
 ```
 
 #### Lógicos
-```maphra
-a ^ b     // E lógico
-a ? b     // OU lógico
-~a        // Negacão lógica
+```go
+a ^ b
+a ? b
+~a   
 ```
 
 #### Condicional (Ternário)
-```maphra
+```go
 int idade = 21;
 string status = "Maior de idade" if idade >= 18 else "Menor de idade";
 print(status);
@@ -99,12 +88,12 @@ print(status);
 
 ### 4. Entrada e Saída (I/O)
 
-```maphra
-string nome = "Maphra";
-print("Bem-vindo à linguagem", nome);
+```go
+print("É possível imprimir diversos argumentos", 1, 3.14, foo)
 
-int idade = input("Digite sua idade: ");
-print("Daqui a 10 anos, você terá:", idade + 10);
+int a = input("Digite um número: ")
+string b
+b = input("Digite uma string: ")
 ```
 
 ---
@@ -112,7 +101,7 @@ print("Daqui a 10 anos, você terá:", idade + 10);
 ### 5. Estruturas de Controle
 
 #### if / else
-```maphra
+```go
 a = 3;
 b = 3;
 
@@ -126,15 +115,18 @@ print("'a' é menor que 'b'");
 ```
 
 #### switch
-```maphra
-int num = 1;
+```go
+foo = "hello"
 
-switch (num) {
-    opt 1:
-        print("É o numero 1");
-        break;
-    dafoe:
-        print("Não sei que número é.");
+switch (foo) {
+  case "hello":
+    print("foo é hello")
+    break
+  case "world":
+    print("foo é world")
+    break
+  dafoe:
+    print("foo não é nem hello nem world")
 }
 ```
 
@@ -142,28 +134,33 @@ switch (num) {
 
 ### 6. Laços de Repetição
 
-#### Estilo C
-```maphra
+#### for
+```go
 for (i = 0; i < 5; i++) {
-    if (i == 3) { continue; }
+    if (i == 3) { 
+        continue;
+    }
     print(i);
 }
 ```
 
-#### Estilo "while"
-```maphra
-int j = 3;
+#### while
+```go
+int j = 5;
 for (j > 0) {
+    if (j == 2) {
+        break
+    }
     print(j);
     j--;
 }
 ```
 
-#### Estilo "do-while"
-```maphra
+#### do-while
+```go
 int k = 0;
 do {
-    print("Executou!");
+    print(k);
     k++;
 } for (k < 1);
 ```
@@ -173,41 +170,62 @@ do {
 ### 7. Funções e Structs
 
 #### Funções
-```maphra
-func soma(int a, int b) : int {
-    return a + b;
+As funções são declaradas com a palavra-chave `func`, o tipo de retorno é opcional, caso não seja declarado, a função retornará `void`
+
+```go
+func soma(int a, int b): int {
+  return a + b
 }
 
-func saudacao(string nome) {
-    print("Olá,", nome);
+func saudacao(string name){
+  print("Hello,", name + "!")
+}
+```
+
+Funções são identificadas pelo nome e seus argumentos, o que permite a sobrecarga de funções
+
+```go
+func produto(int a, int b): int {
+  return a * b
+}
+
+func produto(Point p): int {
+  return p.x * p.y
 }
 ```
 
 #### Structs
-```maphra
-struct Ponto {
-    float x;
-    float y;
-}
+Structs são suportados como em C
 
-struct Retangulo {
-    Ponto superior_esquerdo;
-    Ponto inferior_direito;
+```
+struct Point {
+  int x
+  int y
+}
+```
+Também é possível criar structs aninhados
+
+```go
+struct Square {
+  Point p1
+  Point p2
+  Point p3
+  Point p4
+}
+```
+Além disso, é possível definir métodos para os structs utilizando a palavra-chave `bind`
+
+```go
+bind Square getArea(): int {
+  return (this.p2.x - this.p1.x) * (this.p3.y - this.p1.y)
 }
 ```
 
-#### Métodos com `bind`
-```maphra
-bind Retangulo calcularArea() : float {
-    float base = this.inferior_direito.x - this.superior_esquerdo.x;
-    float altura = this.superior_esquerdo.y - this.inferior_direito.y;
-    return base * altura;
-}
+Variáveis básicas como `int`, `float`, `bool` e `string` também permitem a criação de métodos
 
-func main() {
-    Retangulo r;
-    // ... inicializa os pontos de r ...
-    print("A área é:", r.calcularArea());
+```go
+bind float squared(float a): float {
+  return a * a
 }
 ```
 
@@ -216,7 +234,7 @@ func main() {
 ### 8. Vetores Dinâmicos
 
 #### Declaração e Métodos
-```maphra
+```go
 string cores[];
 cores.append("vermelho");
 cores.append("verde");
@@ -225,7 +243,7 @@ cores.remove(0);
 ```
 
 #### Acesso, Slices, for-in
-```maphra
+```go
 int numeros[];
 numeros.append(10);
 numeros.append(20);
@@ -242,79 +260,45 @@ for (int el in fatia) {
 ```
 
 #### Matrizes (vetores de vetores)
-```maphra
-int matriz[][];
-matriz.append([1, 2, 3]);
-matriz.append([4, 5, 6]);
+```go
+int matriz[][]
+matriz.append([1, 2, 3])
+matriz.append([4, 5, 6])
 
-print(matriz[0][1]); // Saída: 2
+print(matriz[0][1])
 ```
 
 ---
 
-#### `wheeldecide` (`wd`)
+#### `wd` (`wheeldecide`)
 
-Executa **aleatoriamente uma** das cláusulas cuja condição seja verdadeira.
+Por fim, os comandos guardados de Djikstra também são suportados através da palavra-chave `wd` (ou `wheeldecide`)
 
-```
-wd {
-        opt 1 > 0 print("Opção A") // pode executar esta
-        opt 2 > 0 print("Opção B") // ou pode executar esta
-    }
-```
-
-#### Laço `do-wd`
-
-Executa o bloco `wd` repetidamente enquanto **pelo menos uma** das condições for verdadeira.
-
-```
-int contador = 2;
-do wd {
-    opt contador > 0 {
-        print("Executando o DO-WD, contador =", contador);
-        contador--;
-    }
+```go
+wheeldecide {
+  opt T {
+    print("o sorteado foi 1")
+  }
+  opt T {
+    print("o sorteado foi 2")
+  }
+  opt T {
+    print("o sorteado foi 3")
+  }
 }
-// O laço termina quando 'contador' chega a 0.
 ```
-
-Exemplo interessante para demonstração:
+Também é possível fazer um loop
 
 ```
-func main() {
-    int vida_jogador = 10;
-    int vida_monstro = 15;
-
-    print("Uma batalha começou!");
-
-    do wd {
-        // Opção 1: Atacar o monstro. Só é válida se ambos estiverem vivos.
-        opt vida_jogador > 0 ^ vida_monstro > 0 {
-            print("Você ataca o monstro!");
-            vida_monstro = vida_monstro - 5;
-            print("Vida do monstro:", vida_monstro);
-        }
-
-        // Opção 2: O monstro ataca. Só é válida se ambos estiverem vivos.
-        opt vida_jogador > 0 ^ vida_monstro > 0 {
-            print("O monstro ataca você!");
-            vida_jogador = vida_jogador - 3;
-            print("Sua vida:", vida_jogador);
-        }
-
-        // Opção 3: Fim da batalha por vitória.
-        opt vida_monstro <= 0 {
-            print("Você venceu a batalha!");
-            break; // Sai do laço do-wd
-        }
-
-        // Opção 4: Fim da batalha por derrota.
-        opt vida_jogador <= 0 {
-            print("Você foi derrotado!");
-            break; // Sai do laço do-wd
-        }
+do wd {
+    opt q1 > q2 {
+        q1, q2 = q2, q1
     }
-
-    print("A batalha terminou.");
+    opt q2 > q3 {
+        q2, q3 = q3, q2
+    }
+    opt q3 > q4 {
+        q3, q4 = q4, q3
+    }
 }
 ```
