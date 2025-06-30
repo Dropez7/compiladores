@@ -33,7 +33,7 @@ void genCodigo(string traducao) {
     if (removeUsed) {
         codigo += "void __maphra_remove_element(struct Vetor* v, int index);\n";
     }
-	if (sliceUsed) { // <-- ADICIONAR
+	if (sliceUsed) {
         codigo += "struct Vetor __maphra_slice(struct Vetor* original, int start, int end);\n";
     }
     codigo += "\n";
@@ -56,18 +56,14 @@ void genCodigo(string traducao) {
     }
     codigo += "\n" + traducao;
     
-    // --- CORREÇÃO APLICADA AQUI ---
-    // A string agora está no formato C/C++ tradicional, que o Yacc entende.
     if (removeUsed) {
         codigo += genRemoveCode();
     }
 
-    if (sliceUsed) { // <-- ADICIONAR
+    if (sliceUsed) { 
         codigo += genSliceFunction();
     }
 
-
-    // Imprime o código final
     cout << codigo << endl;
 }
 
@@ -244,7 +240,7 @@ ARGS:       TK_TIPO TK_ID ',' ARGS
                 TipoStruct ts = getStruct($1.label);
                 declararVariavel($2.label, ts.id, "", 0);
                 Variavel v = getVariavel($2.label);
-                $$.tipo = ts.id + " " + $4.tipo; // Assinatura CORRETA
+                $$.tipo = ts.id + " " + $4.tipo;
                 $$.traducao = v.tipo + " " + v.id + ", " + $4.traducao;
             }
             | TK_TIPO TK_ID
@@ -279,7 +275,6 @@ ARGS:       TK_TIPO TK_ID ',' ARGS
                 TipoStruct ts = getStruct($1.label);
                 declararVariavel($2.label, ts.id, "", $3.nivelAcesso);
                 Variavel v = getVariavel($2.label);
-                // Assinatura CORRETA para vetores de struct
                 $$.tipo = ts.id + "[] " + $5.tipo;
                 $$.traducao = "struct Vetor " + v.id + ", " + $5.traducao;
             }
@@ -297,7 +292,6 @@ ARGS:       TK_TIPO TK_ID ',' ARGS
                 TipoStruct ts = getStruct($1.label);
                 declararVariavel($2.label, ts.id, "", $3.nivelAcesso);
                 Variavel v = getVariavel($2.label);
-                // Assinatura CORRETA para vetor de struct final
                 $$.tipo = ts.id + "[]";
                 $$.traducao = "struct Vetor " + v.id + ") {\n";
             }
@@ -309,7 +303,7 @@ ARGS:       TK_TIPO TK_ID ',' ARGS
             ;
 CALL_ARGS   : E ',' CALL_ARGS
 			{
-				$$.tipo = $1.tipo + " " + $3.tipo; // multiplos tipos
+				$$.tipo = $1.tipo + " " + $3.tipo;
 				$$.traducao = $1.label + ", " + $3.traducao;
 				$$.traducaoAlt = $1.traducao + $3.traducaoAlt;
 			}
@@ -388,11 +382,8 @@ COMANDO 	: E
 				+ "\t" + random + " = rand();\n"
 				+ "\t" + wd.choice + " = " + random + " % " + wd.count + ";\n";
 				for (int i = 2; i <= wd.nCLAUSES; i++) {
-					// remove todos os placeholders exceto o primeiro
 					$4.traducao = replace($4.traducao, "placeholder" + to_string(i), "");
 				}
-				// adiciona o meio logo após a checagem das cláusulas,
-				// caso todas elas sejam falsas, pula pro final
 				$4.traducao = replace($4.traducao, "placeholder1", meio);
 				$$.traducao = "\t" + wd.guards + " = malloc(" + to_string(wd.nCLAUSES * 4) + ");\n"
 				+ zerarVetor(wd.guards, wd.nCLAUSES) + "\t" + wd.count + " = 0;\n"
@@ -401,7 +392,7 @@ COMANDO 	: E
 			}
 			| TK_DO TK_WHEELDECIDE '{' { genWDargs(); } BLOCO_DECIDE '}'
 			{
-				canBreak = false; // não tem sentido esse laço possuir continue
+				canBreak = false;
 				WDarg wd = pilha_wd.back();
 				string cond = genTempCode("bool");
 				string random = genTempCode("int");
@@ -413,11 +404,11 @@ COMANDO 	: E
 				+ "\t" + random + " = rand();\n"
 				+ "\t" + wd.choice + " = " + random + " % " + wd.count + ";\n";
 				for (int i = 2; i <= wd.nCLAUSES; i++) {
-					// remove todos os placeholders exceto o primeiro
+
 					$5.traducao = replace($5.traducao, "placeholder" + to_string(i), "");
 				}
 				$5.traducao = replace($5.traducao, "placeholder1", meio);
-				$5.traducao = replace($5.traducao, "BREAK", fim); // adiciona os breaks se existirem
+				$5.traducao = replace($5.traducao, "BREAK", fim);
 				$$.traducao = "\t" + wd.guards + " = malloc(" + to_string(wd.nCLAUSES * 4) + ");\n"
 				+ zerarVetor(wd.guards, wd.nCLAUSES) + wd.label + ":\n\t" + wd.count + " = 0;\n"
 				+ $5.traducao + fim + ":\n\tfree(" + wd.guards + ");\n";
@@ -478,8 +469,8 @@ COMANDO 	: E
             }
 			| TK_LACO '(' TK_TIPO TK_ID TK_IN E ')' 
 			{
-				entrar_escopo(); // 1. Entra no escopo do laço.
-				declararVariavel($4.label, $3.tipo, ""); // 2. Declara a variável DENTRO do novo escopo.
+				entrar_escopo();
+				declararVariavel($4.label, $3.tipo, "");
 			}
 			BLOCO
 			{
@@ -612,7 +603,7 @@ BLOCO_SWITCH: TK_OPTION E ':' COMANDOS BLOCO_SWITCH
 				$$.tipo = "dafoe";
                 $$.traducao = $3.traducao + "\tgoto SWITCH_END;\n";
             }
-            | // sumidouro
+            |
             {
                 $$.traducao = "";
             }
@@ -638,7 +629,7 @@ BLOCO_DECIDE: TK_OPTION E COMANDO BLOCO_DECIDE
 				+ "\tgoto " + wd.label + ";\n" + fim2 + ":\n";
 				
 			}
-			| // sumidouro
+			|
 			;
 E 			: BLOCO
 			{
@@ -665,8 +656,8 @@ E 			: BLOCO
 					$$.tipo = "char*";
 					if (isInteger($1.tamanho) && isInteger($3.tamanho)) {
 						$$.tamanho = to_string(stoi($1.tamanho) + stoi($3.tamanho));
-					} else { // se um deles não é inteiro, a variável foi obtida pelo input()
-						$$.tamanho = x3; // por acaso x3 já possuí o tamanho das 2 strings
+					} else { 
+						$$.tamanho = x3;
 					}
 					free_vars.insert($$.label);
 				} else {
@@ -694,7 +685,6 @@ E 			: BLOCO
 						yyerror("operação indisponível para tipo " + $3.tipo);
 					}
 					if ($1.tipo != $3.tipo) {
-						// converte tudo para float
 						$1.traducao += ($1.tipo != "float") ? "\t" + $$.label + " = (float) " + $1.label + ";\n" : "";
 						$3.traducao += ($3.tipo != "float") ? "\t" + $$.label + " = (float) " + $3.label + ";\n" : "";
 					}
@@ -754,7 +744,7 @@ E 			: BLOCO
 				if ($1.tipo == $5.tipo) {
 					tipo_resultado = $1.tipo;
 				} else if (($1.tipo == "int" && $5.tipo == "float") || ($1.tipo == "float" && $5.tipo == "int")) {
-					tipo_resultado = "float"; // Promove para float
+					tipo_resultado = "float";
 				} else {
 					yyerror("Tipos incompativeis nos resultados da expressão condicional: " + $1.tipo + " e " + $5.tipo);
 				}
@@ -767,7 +757,7 @@ E 			: BLOCO
 				$$.label = genTempCode(tipo_resultado);
 				$$.tipo = tipo_resultado;
 				
-				  $$.traducao = $3.traducao + "\t" + cond + " = !" + $3.label + ";\n" + // Linha corrigida
+				$$.traducao = $3.traducao + "\t" + cond + " = !" + $3.label + ";\n" + 
                 "\tif (" + cond + ") goto " + label_false + ";\n" +
                 $1.traducao +
                 "\t" + $$.label + " = " + $1.label + ";\n" +
@@ -775,7 +765,7 @@ E 			: BLOCO
                 label_false + ":\n" +
                 $5.traducao +
                 "\t" + $$.label + " = " + $5.label + ";\n" +
-                label_fim + ":\n";                               // 9. Label do fim
+                label_fim + ":\n";                               
 			}
 			// int(3.14)
 			| TK_TIPO '(' E ')'
@@ -844,8 +834,6 @@ E 			: BLOCO
 			}
 			| OP_PONTO
 			{
-				// Usando o membro de um struct como um R-value (ex: z = foo.c.x.y)
-				// Se o tipo for fundamental, precisamos carregar o valor em um temporário.
 				if (isDefaultType($1.tipo)) {
 					 $$.label = genTempCode($1.tipo);
 					 $$.traducao = $1.traducao + "\t" + $$.label + " = " + $1.label + ";\n";
@@ -882,14 +870,13 @@ E 			: BLOCO
 			| TK_STRING
 			{
 				string s = $1.label;
-				// remove quotes
 				s = s.substr(1, s.length() - 2);
 				$$.tamanho = to_string(s.length()); 
 				$$.label = genTempCode("char*");
 				$$.traducao = "\t" + $$.label + " = malloc(" + to_string((s.length() + 1)) + ");\n"
 					+ "\tstrcpy(" + $$.label + ", \"" + s + "\");\n";
 				$$.tipo = "char*";
-				free_vars.insert($$.label); // marca para liberar memória
+				free_vars.insert($$.label);
 			}
 			| TK_BOOL
 			{
@@ -904,23 +891,20 @@ E 			: BLOCO
 			| TK_ID
 			{
 				Variavel v = getVariavel($1.label);
-				$$.label = v.id;            // Identificador C (ex: "t0")
+				$$.label = v.id;           
 				$$.tamanho = v.tamanho;
-				$$.ehDinamico = v.ehDinamico; // *** ADICIONAR: Passa a flag se é vetor dinâmico ***
+				$$.ehDinamico = v.ehDinamico; 
 				
 				if (v.ehDinamico) {
-					// Para o 'for', precisamos do tipo base do vetor (ex: "char*", "struct Ponto")
-					// Vamos guardá-lo em 'id_original', que você já tem na struct atributos.
 					$$.id_original = v.tipo; 
 
-					// Para checagem de tipo em chamadas de função, mantemos o formato "tipo[]"
 					string base_type_sig = v.tipo;
 					if (base_type_sig.rfind("struct ", 0) == 0) {
 						base_type_sig = base_type_sig.substr(7);
 					}
 					$$.tipo = base_type_sig + "[]";
 				} else {
-					// Se não for dinâmico, os tipos são os mesmos.
+
 					$$.tipo = v.tipo;
 					$$.id_original = v.tipo;
 				}
@@ -994,9 +978,10 @@ E 			: BLOCO
 							yyerror("Tentativa de adicionar um vetor a uma matriz que não é 2D."); 
 						}
 						
-						$$.traducao = $5.traducaoAlt; // Código que cria e preenche o vetor temporário
-						$$.traducao += append_code(v.id, "struct Vetor", $5.label); // Adiciona a struct
+						$$.traducao = $5.traducaoAlt;
+						$$.traducao += append_code(v.id, "struct Vetor", $5.label);
 					} 
+
 					// CASO 2: append(vetor_1d, 42) -> Adicionando um valor a um vetor 1D
 					else { 
 						if (v.numDimensoes != 1) { 
@@ -1033,7 +1018,7 @@ E 			: BLOCO
 					$$.label = genTempCode("int");
 
 					$$.traducao = $1.traducao + "\t" + $$.label + " = " + $1.label + ".tamanho;\n";
-				} else if ($3.label == "remove") { // <-- ADICIONE ESTE BLOCO 'ELSE IF'
+				} else if ($3.label == "remove") {
 					removeUsed = true;
 					if (!v.ehDinamico) {
 						yyerror("O método 'remove' só pode ser chamado em um vetor dinâmico.");
@@ -1069,7 +1054,6 @@ E 			: BLOCO
 					string cond = genTempCode("bool");
 					string l1 = genLabel();
                     
-                    // como não sabemos o tamanho, o tamanho é a própria variável 'tamanho' que será calculada
                     declararVariavel($2.label, $1.tipo, tamanho);
                     Variavel v = getVariavel($2.label);
                     
@@ -1172,7 +1156,6 @@ E 			: BLOCO
 				string tipo_base_linguagem = $1.label;
 				declararVariavel($2.label, tipo_base_linguagem, "");
 
-				// Acessa a variável recém-declarada para obter suas informações
 				Variavel& v = pilha_escopos.back()[$2.label];
 				v.ehDinamico = true;
 				v.numDimensoes = $3.nivelAcesso;
@@ -1188,8 +1171,6 @@ E 			: BLOCO
 				if (v.numDimensoes > 1) {
 					sizeof_arg = "struct Vetor";
 				} else {
-					// --- CORREÇÃO AQUI ---
-					// Use v.tipo, que já foi convertido para "char*", em vez de tipo_base_linguagem.
 					sizeof_arg = v.tipo;
 				}
 				$$.traducao += "\t" + v.id + ".tam_elemento = sizeof(" + sizeof_arg + ");\n";
@@ -1224,12 +1205,10 @@ E 			: BLOCO
 			}
 			| TK_TIPO TK_ID lista_colchetes_vazios '=' E
 			{
-				// 1. O lado direito (RHS) deve ser um vetor ou uma lista
 				if (!$5.ehDinamico && $5.tipo != "__vetor") {
 					yyerror("A inicialização de um vetor dinâmico requer outro vetor ou uma lista [].");
 				}
 
-				// 2. Declara o novo vetor (LHS, ex: 'meio')
 				string tipo_base = ($5.id_original.empty()) ? $1.tipo : $5.id_original;
 				declararVariavel($2.label, tipo_base, "");
 
@@ -1239,9 +1218,6 @@ E 			: BLOCO
 				variaveis.erase(v);
 				variaveis.insert(v);
 
-				// 3. Gera o código de atribuição. O RHS ($5) já contém o código
-				//    para criar o vetor (seja por slice ou lista).
-				//    Só precisamos atribuir o resultado ao novo vetor 'v'.
 				$$.traducao = $5.traducao;
 				$$.traducao += "\t" + v.id + " = " + $5.label + "; // " + v.nome + "\n";
 			}
@@ -1269,7 +1245,7 @@ E 			: BLOCO
 			/* | acesso_vetor  */
 			| acesso
 			| inicializacao_lista {
-				$$ = $1; // Apenas repassa os atributos.
+				$$ = $1;
 			}
 			;
 
@@ -1279,14 +1255,11 @@ acesso: TK_ID '[' E ']'  // Regra original: v[i] (caso base)
             if (!v.ehDinamico) { yyerror("A variável '" + v.nome + "' não é um vetor dinâmico."); }
             if ($3.tipo != "int") { yyerror("O índice de um vetor deve ser um inteiro."); }
 
-            // Lógica para acessar o elemento do vetor.
-            // O tipo resultante é o tipo base do vetor.
             $$.tipo = v.tipo; 
-            // Para matrizes, o tipo base ainda é um vetor. Ex: int[][] -> int[]
             if (v.numDimensoes > 1) {
                 $$.tipo = v.tipo + "[]";
-                $$.id_original = v.tipo; // Mantém o tipo do elemento final (ex: int)
-                $$.numDimensoes = v.numDimensoes - 1; // Decrementa a dimensão
+                $$.id_original = v.tipo;
+                $$.numDimensoes = v.numDimensoes - 1;
                 $$.ehDinamico = true;
             } else {
                  $$.numDimensoes = 0;
@@ -1295,7 +1268,7 @@ acesso: TK_ID '[' E ']'  // Regra original: v[i] (caso base)
 
             // Gera o código de 3 endereços para o acesso
             $$.traducao = $3.traducao; 
-            string temp_result = genTempCode("struct Vetor"); // Assume que o resultado é sempre um ponteiro/struct
+            string temp_result = genTempCode("struct Vetor");
             string p_data = genTempCode("char*");
             string t_offset = genTempCode("int");
             string p_element = genTempCode("char*");
@@ -1304,8 +1277,6 @@ acesso: TK_ID '[' E ']'  // Regra original: v[i] (caso base)
             $$.traducao += "\t" + t_offset + " = " + $3.label + " * " + v.id + ".tam_elemento;\n";
             $$.traducao += "\t" + p_element + " = " + p_data + " + " + t_offset + ";\n";
            
-            // Se o elemento ainda for um vetor, o resultado é a struct Vetor naquele ponteiro.
-            // Se for o elemento final, é o valor.
             if ($$.ehDinamico) {
                  $$.label = genTempCode("struct Vetor");
                  $$.traducao += "\t" + $$.label + " = *((" + "struct Vetor" + "*)" + p_element + ");\n";
@@ -1314,13 +1285,12 @@ acesso: TK_ID '[' E ']'  // Regra original: v[i] (caso base)
                  $$.traducao += "\t" + $$.label + " = *((" + $$.tipo + "*)" + p_element + ");\n";
             }
         }
-      | acesso '[' E ']' // Nova regra: expressao[i] (caso recursivo)
+      | acesso '[' E ']'
         {
-            // $1 é o resultado do acesso anterior (ex: matriz[0])
+
             if (!$1.ehDinamico) { yyerror("Tentativa de indexar uma expressão que não é um vetor."); }
             if ($3.tipo != "int") { yyerror("O índice de um vetor deve ser um inteiro."); }
             
-            // O tipo do resultado é o tipo base do vetor anterior
             $$.tipo = $1.id_original;
             if ($1.numDimensoes > 1) {
                 $$.tipo = $1.id_original + "[]";
@@ -1332,7 +1302,6 @@ acesso: TK_ID '[' E ']'  // Regra original: v[i] (caso base)
                 $$.ehDinamico = false;
             }
             
-            // Gera o código de 3 endereços para o acesso aninhado
             $$.traducao = $1.traducao + $3.traducao;
             string p_data = genTempCode("char*");
             string t_offset = genTempCode("int");
@@ -1354,12 +1323,10 @@ acesso: TK_ID '[' E ']'  // Regra original: v[i] (caso base)
 
 lista_colchetes_vazios: '[' ']'
 			{
-				// Caso base: encontrou o primeiro []. O nível/dimensão é 1.
 				$$.nivelAcesso = 1;
 			}
 			| lista_colchetes_vazios '[' ']'
 			{
-				// Caso recursivo: encontrou mais um []. Incrementa o contador.
 				$$.nivelAcesso = $1.nivelAcesso + 1;
 			}
 			;
@@ -1399,7 +1366,7 @@ lista_elementos: E
 				temp_v.numDimensoes = 1;
 				variaveis.insert(temp_v);
 
-				$$.traducao = $1.traducao; // Código da expressão do primeiro elemento.
+				$$.traducao = $1.traducao; 
 				$$.traducao += "\tstruct Vetor " + temp_v.id + ";\n";
 				$$.traducao += "\t" + temp_v.id + ".tamanho = 0;\n";
 				$$.traducao += "\t" + temp_v.id + ".capacidade = 0;\n";
@@ -1408,12 +1375,12 @@ lista_elementos: E
 				
 				$$.traducao += append_code(temp_v.id, tipo_base_lista, $1.label);
 
-				$$.label = temp_v.id; // O resultado é o ID do vetor temporário (ex: t2).
-				$$.tipo = tipo_base_lista; // Guarda o tipo dos elementos.
+				$$.label = temp_v.id; 
+				$$.tipo = tipo_base_lista;
 			}
 			| lista_elementos ',' E
 			{
-				$$ = $1; // Pega os atributos do vetor temporário já criado.
+				$$ = $1;
 				if ($1.tipo != $3.tipo) { yyerror("Tipos mistos em lista de inicialização não são permitidos."); }
 				
 				$$.traducao += $3.traducao;
@@ -1423,13 +1390,13 @@ lista_elementos: E
 			
 OP_PONTO    : TK_ID
 			{
-				// Caso base para o início de uma cadeia de acesso, ex: 'foo'
+
 				Variavel v = getVariavel($1.label);
-				$$.label = v.id;         // Identificador C para a variável, ex: t0
-				$$.tipo = v.tipo;         // Tipo da variável, ex: struct Foo
+				$$.label = v.id;         
+				$$.tipo = v.tipo;         
 				$$.ehDinamico = v.ehDinamico;
 				$$.numDimensoes = v.numDimensoes;
-				$$.traducao = "";         // Sem código de preparação para a variável base
+				$$.traducao = "";         
 			}
 			| TK_THIS
 			{
@@ -1440,10 +1407,9 @@ OP_PONTO    : TK_ID
 				$$.tipo = split(tipoMetodo, "|")[0];
 				$$.traducao = "";
 			}
-			/* | acesso_vetor */
 			| acesso
 			{
-				$$ = $1; // Repassa os atributos do acesso ao vetor.
+				$$ = $1; 
 			}
 			| OP_PONTO '.' TK_ID
 			{
@@ -1473,7 +1439,6 @@ OP_PONTO    : TK_ID
 					yyerror("struct " + struct_name + " não possuí o campo " + $3.label);
 				}
 
-				// Lógica unificada: sempre obter um ponteiro para o membro
 				string member_type_name = member_attr.tipo;
 				string new_ptr_type;
 
@@ -1485,7 +1450,6 @@ OP_PONTO    : TK_ID
 
 				$$.label = genTempCode(new_ptr_type); 
 				$$.tipo = new_ptr_type;
-				// Parênteses removidos e lógica unificada
 				$$.traducao = $1.traducao + "\t" + $$.label + " = &" + $1.label + accessor + member_attr.id + ";\n";
 			}
 		;
@@ -1496,14 +1460,14 @@ OPTIONAL:   E
 				}
 				$$.traducao = $1.traducao + "\tprintf(\"%s\", " + $1.label + ");\n";
 			}
-			| /* vazio */
+			| 
 			{	
 				$$.traducao = "";
 			}
 			; 
 PRINT_ARGS:     E ',' PRINT_ARGS
             {
-                // Unifica a checagem de tipo. Se for "char*" OU "string", trata como string.
+
                 if ($1.tipo == "char*" || $1.tipo == "string") {
                     $$.traducao = $1.traducao + "\tprintf(\"%s\", " + $1.label + ");\n\tprintf(\" \");\n";
                 } else if ($1.tipo == "bool") {

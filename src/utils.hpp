@@ -155,7 +155,7 @@ void genPrototipo(Funcao& f)
 
     for (const auto& type : param_types)
     {
-        if (type.empty()) continue; // Pula tokens vazios do split.
+        if (type.empty()) continue;
 
         if (!first) {
             c_param_list_str += ", ";
@@ -238,7 +238,7 @@ void declararVariavel(const string& nome_var, const string& tipo_var, const stri
     v.tipo = (tipo_var == "string") ? "char*" : tipo_var;
     v.id = genId();
     v.tamanho = tamanho;
-    v.numDimensoes = numDimensoes; // Armazena o número de dimensões
+    v.numDimensoes = numDimensoes; 
 
     // Simplificação: se tem dimensões, é dinâmico.
     if (numDimensoes > 0) {
@@ -511,7 +511,6 @@ string convertImplicit(atributos a, atributos b, Variavel v)
         {
             return a.traducao + b.traducao + "\t" + v.id + " = (float) " + b.label + ";\n";
         }
-        // Correção pra string e char*
 
         else if (v.tipo == "string" && b.tipo == "char*")
         {
@@ -633,7 +632,6 @@ string genStringcmp() {
 
 string append_code(string vet_id, string tipo_base, string val_label) {
 
-    // --- Setup: Nomes para variáveis temporárias e labels ---
     string l_realloc_fim = genLabel();
     string l_ternario_else = genLabel();
     string l_ternario_fim = genLabel();
@@ -648,11 +646,9 @@ string append_code(string vet_id, string tipo_base, string val_label) {
 
     string code;
 
-    // 1. Verifica se precisa realocar
     code += "\t" + cond_realloc + " = " + vet_id + ".tamanho != " + vet_id + ".capacidade;\n";
     code += "\tif (" + cond_realloc + ") goto " + l_realloc_fim + ";\n";
 
-    // 2. Bloco que substitui o operador ternário
     code += "\t" + cond_nova_cap + " = " + vet_id + ".capacidade != 0;\n";
     code += "\tif (" + cond_nova_cap + ") goto " + l_ternario_else + ";\n";
     code += "\t" + nova_capacidade + " = 8;\n";
